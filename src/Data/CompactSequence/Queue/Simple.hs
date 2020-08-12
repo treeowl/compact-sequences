@@ -32,18 +32,23 @@ import qualified Data.Foldable as F
 import qualified GHC.Exts as Exts
 import Control.Monad.Trans.State.Strict
 
+-- | A queue.
 newtype Queue a = Queue (Q.Queue 'A.Mul1 a)
   deriving (Functor, Traversable, Eq, Ord)
 
+-- | The empty queue.
 empty :: Queue a
 empty = Queue Q.empty
 
+-- | Enqueue an element at the rear of a queue.
 snoc :: Queue a -> a -> Queue a
 snoc (Queue q) a = Queue $ Q.snocA A.one q (A.singleton a)
 
+-- | An infix synonym for 'snoc'.
 (|>) :: Queue a -> a -> Queue a
 (|>) = snoc
 
+-- | Dequeue an element from the front of a queue.
 uncons :: Queue a -> Maybe (a, Queue a)
 uncons (Queue q) = case Q.viewA A.one q of
   Q.EmptyA -> Nothing
@@ -52,11 +57,14 @@ uncons (Queue q) = case Q.viewA A.one q of
     -> Just (a, Queue q')
 
 infixr 4 :<
-infixl 4 `snoc`
+infixl 4 `snoc`, |>
 
+-- | A unidirectional pattern synonym for viewing the
+-- front of a queue.
 pattern (:<) :: a -> Queue a -> Queue a
 pattern x :< xs <- (uncons -> Just (x, xs))
 
+-- | A bidirectional pattern synonym for the empty queue.
 pattern Empty :: Queue a
 pattern Empty = Queue Q.Empty
 {-# COMPLETE (:<), Empty #-}
