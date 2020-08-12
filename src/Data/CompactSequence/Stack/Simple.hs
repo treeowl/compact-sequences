@@ -29,32 +29,41 @@ import qualified Data.CompactSequence.Internal.Array.Safe as A
 import qualified Data.Foldable as F
 import qualified GHC.Exts as Exts
 
+-- | A stack.
 newtype Stack a = Stack {unStack :: S.Stack A.Mul1 a}
   deriving (Functor, Traversable, Eq, Ord)
   -- TODO: Write a custom Traversable instance to avoid
   -- an extra fmap at the top.
 
+-- | The empty stack.
 empty :: Stack a
 empty = Stack S.empty
 
 infixr 4 `cons`, :<, <|
+
+-- | Push an element onto the front of a stack.
 cons :: a -> Stack a -> Stack a
 cons a (Stack s) = Stack $ consA A.one (A.singleton a) s
 
+-- | Pop an element off the front of a stack.
 uncons :: Stack a -> Maybe (a, Stack a)
 uncons (Stack stk) = do
   ConsA sa stk' <- pure $ unconsA A.one stk
   hd <- A.getSingletonA sa
   Just (hd, Stack stk')
 
+-- | An infix synonym for 'cons'.
 (<|) :: a -> Stack a -> Stack a
 (<|) = cons
 
+-- | A bidirectional pattern synonym for working with
+-- the front of a stack.
 pattern (:<) :: a -> Stack a -> Stack a
 pattern x :< xs <- (uncons -> Just (x, xs))
   where
     (:<) = cons
 
+-- | A bidirectional pattern synonym for the empty stack.
 pattern Empty :: Stack a
 pattern Empty = Stack S.Empty
 
