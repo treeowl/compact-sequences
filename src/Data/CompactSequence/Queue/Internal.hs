@@ -2,7 +2,8 @@
 {-# language BangPatterns, ScopedTypeVariables, UnboxedTuples, MagicHash #-}
 {-# language DeriveTraversable, StandaloneDeriving #-}
 {-# language DataKinds #-}
-{-# OPTIONS_GHC -Wall #-}
+-- {-# OPTIONS_GHC -Wall #-}
+
 module Data.CompactSequence.Queue.Internal where
 --import Data.Primitive.SmallArray (SmallArray)
 --import qualified Data.Primitive.SmallArray as A

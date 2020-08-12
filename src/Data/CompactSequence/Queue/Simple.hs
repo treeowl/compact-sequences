@@ -8,7 +8,7 @@
 {-# language ViewPatterns #-}
 {-# language Trustworthy #-}
 {-# language TypeFamilies #-}
-{-# OPTIONS_GHC -Wall #-}
+-- {-# OPTIONS_GHC -Wall #-}
 
 {- |
 Space-efficient queues with amortized \( O(\log n) \) operations.  These
