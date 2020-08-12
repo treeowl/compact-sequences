@@ -20,6 +20,9 @@ module Data.CompactSequence.Stack.Simple
   , cons
   , (<|)
   , uncons
+  , compareLength
+  , take
+  , fromList
   , fromListN
   ) where
 
@@ -28,6 +31,8 @@ import Data.CompactSequence.Stack.Internal (consA, unconsA, ViewA (..))
 import qualified Data.CompactSequence.Internal.Array.Safe as A
 import qualified Data.Foldable as F
 import qualified GHC.Exts as Exts
+import qualified Prelude as P
+import Prelude hiding (take)
 
 -- | A stack.
 newtype Stack a = Stack {unStack :: S.Stack A.Mul1 a}
@@ -88,12 +93,33 @@ instance Foldable Stack where
       go s acc (S.Two _ _ more) = go (2*s) (acc + 2*s) more
       go s acc (S.Three _ _ _ more) = go (2*s) (acc + 3*s) more
 
+-- | \( O(\min(m, n)) \). Compare an 'Int' to the length of a 'Stack'.
+--
+-- @compareLength n xs = compare n (length xs)@
+compareLength :: Int -> Stack a -> Ordering
+compareLength n0 (Stack stk0) = go A.one n0 stk0
+  where
+    go :: A.Size n -> Int -> S.Stack n a -> Ordering
+    go !_sz n S.Empty = compare n 0
+    go _sz n _ | n <= 0 = LT
+    go sz n (S.One _ more) = go (A.twice sz) (n - A.getSize sz) more
+    go sz n (S.Two _ _ more) = go (A.twice sz) (n - 2*A.getSize sz) more
+    go sz n (S.Three _ _ _ more) = go (A.twice sz) (n - 3*A.getSize sz) more
+
+-- | Take up to the given number of elements from the front
+-- of a stack to form a new stack. \( O(\min (k, n)) \), where
+-- \( k \) is the integer argument and \( n \) is the size of
+-- the stack.
+take :: Int -> Stack a -> Stack a
+take n s
+  | n <= 0 = Empty
+  | compareLength n s == LT
+  = fromListN n (P.take n (F.toList s))
+  | otherwise = s
+
 instance Semigroup (Stack a) where
-  -- This gives us O(m + n) append, which I believe is the best we can do in
-  -- general.
-  -- TODO: when the first stack is small enough, it's better to
-  -- just push all its elements, in reverse, onto the second
-  -- stack. Let's take advantage of that.
+  -- This gives us O(m + n) append. I believe it's possible to
+  -- achieve O(m). See #12 for a sketch.
   Empty <> s = s
   s <> Empty = s
   s <> t = fromListN (length s + length t) (F.toList s ++ F.toList t)
@@ -115,6 +141,8 @@ fromList = foldr cons empty
 -- | \( O(n) \). Convert a list of known length to a stack,
 -- with the first element of the list as the top of the stack.
 fromListN :: Int -> [a] -> Stack a
+fromListN n !_
+  | n < 0 = error "Data.CompactSequence.Stack.fromListN: Negative argument."
 fromListN s xs = Stack $ fromListSN A.one (intToStackNum s) xs
 
 -- We implement fromListN using a sort of abstract interpretation.  The
@@ -154,7 +182,9 @@ fromListSN s (ThreeNum n') xs
   = S.Three ar1 ar2 ar3 (fromListSN (A.twice s) n' xs''')
 
 intToStackNum :: Int -> StackNum
-intToStackNum = go EmptyNum
+intToStackNum n0
+  | n0 < 0 = error "Data.CompactSequence.Stack.intToStackNum: negative argument"
+  | otherwise = go EmptyNum n0
   where
     go !sn 0 = sn
     go !sn n = go (incStackNum sn) (n - 1)
