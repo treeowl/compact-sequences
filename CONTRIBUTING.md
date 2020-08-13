@@ -21,3 +21,8 @@ as well as
 he expanded it into. There's no need to fully
 understand his justification for the framework; just
 get a sense of how it's applied.
+
+Note that almost everywhere in this package,
+we either *must* be lazy or *must* be strict
+to maintain the desired space and time bounds.
+There isn't a lot of wiggle room.
