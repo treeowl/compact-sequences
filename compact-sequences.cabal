@@ -45,4 +45,8 @@ test-suite compact-sequences-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             MyLibTest.hs
-  build-depends:       base >=4.10.0.0
+  build-depends:       base >=4.10.0.0,
+                       compact-sequences,
+                       QuickCheck,
+                       tasty,
+                       tasty-quickcheck
