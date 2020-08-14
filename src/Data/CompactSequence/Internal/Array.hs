@@ -14,10 +14,6 @@ module Data.CompactSequence.Internal.Array where
 import Data.Primitive.SmallArray
 import Control.Monad.ST.Strict
 
--- fixed-vector
--- unpacked-containers
--- contiguous
-
 data Mult = Twice Mult | Mul1
 
 newtype Array (n :: Mult) a = Array (SmallArray a)
@@ -110,3 +106,6 @@ smallArraySplitListN n l = runST $ do
           sa <- unsafeFreezeSmallArray sma
           pure (sa, xss)
   go 0 l
+
+fromList :: Size n -> [a] -> Array n a
+fromList (Size n) xs = Array (smallArrayFromListN n xs)
