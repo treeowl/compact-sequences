@@ -34,6 +34,7 @@ library
                  , Data.CompactSequence.Internal.Array
                  , Data.CompactSequence.Internal.Numbers
                  , Data.CompactSequence.Internal.Array.Safe
+                 , Data.CompactSequence.Deque.Internal
   -- other-modules:
   -- other-extensions:
   build-depends:       base >=4.10.0.0 && < 5.0
