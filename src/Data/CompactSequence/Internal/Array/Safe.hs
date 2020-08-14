@@ -15,5 +15,6 @@ module Data.CompactSequence.Internal.Array.Safe
   , splitArray
   , append
   , arraySplitListN
+  , fromList
   ) where
 import Data.CompactSequence.Internal.Array

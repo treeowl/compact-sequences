@@ -26,6 +26,7 @@ source-repository head
 
 library
   exposed-modules: Data.CompactSequence.Stack.Simple
+                 , Data.CompactSequence.Stack.Simple.Internal
                  , Data.CompactSequence.Stack.Internal
                  , Data.CompactSequence.Queue.Simple
                  , Data.CompactSequence.Queue.Internal
