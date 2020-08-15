@@ -73,10 +73,15 @@ pattern Empty = Queue Q.Empty
 {-# COMPLETE (:<), Empty #-}
 
 instance Foldable Queue where
-  -- TODO: Implement more methods.
+  -- TODO: Implement more methods?
   foldMap f (Queue q) = foldMap f q
   foldr c n (Queue q) = foldr c n q
+  foldr' c n (Queue q) = F.foldr' c n q
+  foldl f b (Queue q) = foldl f b q
   foldl' f b (Queue q) = F.foldl' f b q
+
+  null (Queue Q.Empty) = True
+  null _ = False
   -- Note: length only does O(log n) *unshared* work, but it does O(n) amortized
   -- work because it has to force the entire spine. We could avoid
   -- this, of course, by storing the size with the queue.
