@@ -11,8 +11,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        ghc: ['8.6.5', '8.8.3', '8.10.1']
+        ghc: ['8.6', '8.8', '8.10']
         os: [ubuntu-latest, macOS-latest, windows-latest]
+        exclude:
+          # 8.8.3 on windows throws segfaults when installing deps
+          - os: windows-latest
+            ghc: '8.8'
     name: GHC ${{ matrix.ghc }} / ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2
@@ -35,9 +39,9 @@ jobs:
 
     - name: Install dependencies
       run: |
-        cabal v2-update
-        cabal v2-build --only-dependencies --enable-tests --enable-benchmarks
+        cabal v2-update || cabal v2-update
+        cabal v2-build --only-dependencies --enable-tests --enable-benchmarks || cabal v2-build --only-dependencies --enable-tests --enable-benchmarks
     - name: Build
-      run: cabal v2-build
+      run: cabal v2-build || cabal v2-build
     - name: Test
       run: cabal v2-test
