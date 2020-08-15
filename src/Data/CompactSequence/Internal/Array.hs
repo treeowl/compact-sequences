@@ -9,10 +9,12 @@
 {-# language RankNTypes #-}
 {-# language DeriveTraversable #-}
 {-# language Unsafe #-}
+{- OPTIONS_GHC -ddump-simpl #-}
 
 module Data.CompactSequence.Internal.Array where
 import Data.Primitive.SmallArray
 import Control.Monad.ST.Strict
+import GHC.Exts (SmallArray#)
 
 data Mult = Twice Mult | Mul1
 
@@ -61,6 +63,10 @@ splitArray (Size len) (Array sa1) = (Array sa2, Array sa3)
   where
     !sa2 = cloneSmallArray sa1 0 len
     !sa3 = cloneSmallArray sa1 len len
+-- We inline this just to unbox the tuple and SmallArray constructors. We could
+-- instead apply manual worker-wrapper around a NOINLINE function returning (#
+-- SmallArray# a, SmallArray# a #); would that be better?
+{-# INLINE splitArray #-}
 
 -- | Append two arrays of the same size. We take the size
 -- of the argument arrays so we can build the result array
@@ -69,10 +75,22 @@ splitArray (Size len) (Array sa1) = (Array sa2, Array sa3)
 -- want to just use `<>`, because 
 append :: Size n -> Array n a -> Array n a -> Array (Twice n) a
 append (Size n) (Array xs) (Array ys) = Array $
+  appendSmallArrays n xs ys
+
+-- WAT. For some reason, if I put the actual machinery of this in 'append' and
+-- say NOINLINE, GHC (8.6.3 and 8.8.1 at least) doesn't perform worker-wrapper!
+-- Ugh.
+appendSmallArrays :: Int -> SmallArray a -> SmallArray a -> SmallArray a
+appendSmallArrays n xs ys =
     createSmallArray (2*n)
       (error "Data.CompactSequence.Internal.Array.append: Internal error")
       $ \sma -> copySmallArray sma 0 xs 0 n
         *> copySmallArray sma n ys 0 n
+-- Small though this is, I don't really see much point in inlining it; it calls
+-- several out-of-line primops that aren't super-cheap anyway. I'd rather cut
+-- code size. This will change completely, of course, once GHC gets a primop
+-- for appending arrays.
+{-# NOINLINE appendSmallArrays #-}
 
 -- Shamelessly stolen from primitive.
 createSmallArray

@@ -2,7 +2,11 @@
 {-# language BangPatterns, ScopedTypeVariables, UnboxedTuples, MagicHash #-}
 {-# language DeriveTraversable, StandaloneDeriving #-}
 {-# language DataKinds #-}
+{-# language PatternSynonyms #-}
+{-# language ViewPatterns #-}
+{-# language LambdaCase #-}
 -- {-# OPTIONS_GHC -Wall #-}
+{- OPTIONS_GHC -ddump-simpl #-}
 
 module Data.CompactSequence.Queue.Internal where
 --import Data.Primitive.SmallArray (SmallArray)
@@ -28,7 +32,15 @@ data RD n a
 
 data Queue n a
   = Empty
-  | Node !(FD n a) (Queue ('Twice n) a) !(RD n a)
+  | Node10 !(Array n a) !(Queue ('Twice n) a)
+  | Node11 !(Array n a) !(Queue ('Twice n) a) !(Array n a)
+  | Node12 !(Array n a) !(Queue ('Twice n) a) !(Array n a) !(Array n a)
+  | Node20 !(Array n a) !(Array n a) (Queue ('Twice n) a)
+  | Node21 !(Array n a) !(Array n a) (Queue ('Twice n) a) !(Array n a)
+  | Node22 !(Array n a) !(Array n a) !(Queue ('Twice n) a) !(Array n a) !(Array n a)
+  | Node30 !(Array n a) !(Array n a) !(Array n a) (Queue ('Twice n) a)
+  | Node31 !(Array n a) !(Array n a) !(Array n a) (Queue ('Twice n) a) !(Array n a)
+  | Node32 !(Array n a) !(Array n a) !(Array n a) !(Queue ('Twice n) a) !(Array n a) !(Array n a)
   deriving (Functor, Traversable)
 -- An Empty node is safe.
 -- A Node node is safe if both its digits are safe. We require that the child queue of an unsafe
@@ -50,6 +62,39 @@ data Queue n a
 -- the *safety value* above Node, sv(Node), is 1*1+1*2+0*4+1*8 = 11
 --
 -- We allow the child queue of a safe node four times its safety value (for some value of four).
+
+data Queue_ n a
+  = Empty_
+  | Node_ !(FD n a) (Queue ('Twice n) a) !(RD n a)
+
+matchNode :: Queue n a -> Queue_ n a
+matchNode = \case
+  Empty -> Empty_
+  Node10 x m -> Node_ (FD1 x) m RD0
+  Node11 x m a -> Node_ (FD1 x) m (RD1 a)
+  Node12 x m a b -> Node_ (FD1 x) m (RD2 a b)
+  Node20 x y m -> Node_ (FD2 x y) m RD0
+  Node21 x y m a -> Node_ (FD2 x y) m (RD1 a)
+  Node22 x y m a b -> Node_ (FD2 x y) m (RD2 a b)
+  Node30 x y z m -> Node_ (FD3 x y z) m RD0
+  Node31 x y z m a -> Node_ (FD3 x y z) m (RD1 a)
+  Node32 x y z m a b -> Node_ (FD3 x y z) m (RD2 a b)
+{-# INLINE matchNode #-}
+
+pattern Node :: FD n a -> Queue ('Twice n) a -> RD n a -> Queue n a
+pattern Node pr m sf <- (matchNode -> Node_ pr m sf)
+  where
+    Node (FD1 x) m RD0 = Node10 x m
+    Node (FD1 x) m (RD1 a) = Node11 x m a
+    Node (FD1 x) m (RD2 a b) = Node12 x m a b
+    Node (FD2 x y) m RD0 = Node20 x y m
+    Node (FD2 x y) m (RD1 a) = Node21 x y m a
+    Node (FD2 x y) m (RD2 a b) = Node22 x y m a b
+    Node (FD3 x y z) m RD0 = Node30 x y z m
+    Node (FD3 x y z) m (RD1 a) = Node31 x y z m a
+    Node (FD3 x y z) m (RD2 a b) = Node32 x y z m a b
+
+{-# COMPLETE Empty, Node #-}
 
 data ViewA n a
   = EmptyA
