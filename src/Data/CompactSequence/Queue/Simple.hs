@@ -15,6 +15,7 @@ module Data.CompactSequence.Queue.Simple
   , take
   , fromList
   , fromListN
+  , fromListNIncremental
   ) where
 
 import Data.CompactSequence.Queue.Simple.Internal
