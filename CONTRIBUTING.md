@@ -5,11 +5,9 @@ getting to know `Data.CompactSequence.Stack.Internal`.
 The basic operations there require considerably
 less code than those for the other structures, so
 it's easier to understand how they interact with
-the debit invariant. The queues are a bit more
-code with some strictness invariants not explicitly
-expressed in the type itself. Deques
-(still being implemented) are just like queues,
-but with lots and lots more cases to deal with.
+the debit invariant. The other structures work
+according to exactly the same principles, but with
+a lot more moving parts.
 
 Speaking of debit invariants, it
 will be very helpful for contributors to have some
