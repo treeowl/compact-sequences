@@ -29,6 +29,7 @@ module Data.CompactSequence.Stack.Simple.Internal
 import qualified Data.CompactSequence.Stack.Internal as S
 import Data.CompactSequence.Stack.Internal (consA, unconsA, ViewA (..))
 import qualified Data.CompactSequence.Internal.Array.Safe as A
+import qualified Data.CompactSequence.Internal.Numbers as N
 import qualified Data.Foldable as F
 import qualified GHC.Exts as Exts
 import qualified Prelude as P
@@ -143,57 +144,23 @@ fromList = foldr cons empty
 fromListN :: Int -> [a] -> Stack a
 fromListN n !_
   | n < 0 = error "Data.CompactSequence.Stack.fromListN: Negative argument."
-fromListN s xs = Stack $ fromListSN A.one (intToStackNum s) xs
+fromListN s xs = Stack $ fromListSN A.one (N.toDyadic s) xs
 
--- We implement fromListN using a sort of abstract interpretation.  The
--- StackNum type is a representation of the *shape* of a stack.  Incrementing
--- it takes O(1) amortized time and O(log n) worst-case time. We count up with
--- it all the way to the desired size and then build a stack with the shape it
--- indicates. 
---
--- TODO: find a faster way. While this approach is much, much better than the
--- naive O(n log n) one, it's not great. The smallest improvement would be to
--- represent StackNum as a bitstring, with two bits per digit.  But it would be
--- much nicer to find a way to reduce the order of growth.
-
-data StackNum
-  = EmptyNum
-  | OneNum !StackNum
-  | TwoNum !StackNum
-  | ThreeNum !StackNum
-
-fromListSN :: A.Size n -> StackNum -> [a] -> S.Stack n a
-fromListSN !_ EmptyNum xs
+-- We convert the size to a dyadic representation
+-- (1-2 binary) and use that as the shape of the stack.
+fromListSN :: A.Size n -> N.Dyadic -> [a] -> S.Stack n a
+fromListSN !_ N.DEnd xs
   | F.null xs = S.Empty
   | otherwise = error "Data.CompactSequence.Stack.fromListN: List too long."
-fromListSN s (OneNum n') xs
+fromListSN s (N.DOne n') xs
   | (ar, xs') <- A.arraySplitListN s xs
   = S.One ar (fromListSN (A.twice s) n' xs')
-fromListSN s (TwoNum n') xs
+fromListSN s (N.DTwo n') xs
   | (ar1, xs') <- A.arraySplitListN s xs
   , (ar2, xs'') <- A.arraySplitListN s xs'
     -- We build eagerly to dispose of the list as soon as
     -- possible.
   = S.Two ar1 ar2 $! fromListSN (A.twice s) n' xs''
-fromListSN s (ThreeNum n') xs
-  | (ar1, xs') <- A.arraySplitListN s xs
-  , (ar2, xs'') <- A.arraySplitListN s xs'
-  , (ar3, xs''') <- A.arraySplitListN s xs''
-  = S.Three ar1 ar2 ar3 (fromListSN (A.twice s) n' xs''')
-
-intToStackNum :: Int -> StackNum
-intToStackNum n0
-  | n0 < 0 = error "Data.CompactSequence.Stack.intToStackNum: negative argument"
-  | otherwise = go EmptyNum n0
-  where
-    go !sn 0 = sn
-    go !sn n = go (incStackNum sn) (n - 1)
-
-incStackNum :: StackNum -> StackNum
-incStackNum EmptyNum = OneNum EmptyNum
-incStackNum (OneNum n) = TwoNum n
-incStackNum (TwoNum n) = ThreeNum n
-incStackNum (ThreeNum n) = TwoNum (incStackNum n)
 
 instance Show a => Show (Stack a) where
     showsPrec p xs = showParen (p > 10) $

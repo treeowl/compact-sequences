@@ -37,8 +37,9 @@ instance Arbitrary a => Arbitrary (Stack a) where
                       <*> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
                       <*> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
                       <*> go (A.twice ars) (n - 3 * A.getSize ars)
-  -- We shrink by trimming the spine. I doubt any other
-  -- shrinks are really useful for our purposes.
+
+  -- We shrink by trimming the spine. Any other shrinks will
+  -- be tricky.
   shrink (Stack stk) = [ Stack (takeSpine k stk) | k <- [0..depth stk]]
     where
       depth :: SI.Stack n a -> Int

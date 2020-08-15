@@ -46,29 +46,21 @@ instance Arbitrary a => Arbitrary (Queue a) where
         1 -> QI.RD1 <$> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
         _ -> QI.RD2 <$> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
                     <*> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-  -- We shrink by trimming the spine. I doubt any other
-  -- shrinks are really useful for our purposes.
-{-
-  shrink (Queue stk) = [ Queue (takeSpine k stk) | k <- [0..depth stk]]
+
+  -- We shrink by trimming the spine. Any other shrinks will
+  -- be tricky.
+  shrink (Queue que) = [ Queue (takeSpine k que) | k <- [0..depth que]]
     where
       depth :: QI.Queue n a -> Int
       depth QI.Empty = 0
-      depth (QI.One _ m) = 1 + depth m
-      depth (QI.Two _ _ m) = 1 + depth m
-      depth (QI.Three _ _ _ m) = 1 + depth m
+      depth (QI.Node _ m _) = 1 + depth m
 
       takeSpine :: Int -> QI.Queue n a -> QI.Queue n a
       takeSpine 0 !_ = QI.Empty
       takeSpine _ QI.Empty
         = QI.Empty
-      takeSpine n (QI.One sa1 m)
-        = QI.One sa1 $ takeSpine (n - 1) m
-      takeSpine n (QI.Two sa1 sa2 m)
-        = QI.Two sa1 sa2 $ takeSpine (n - 1) m
-      takeSpine n (QI.Three sa1 sa2 sa3 m)
-        = QI.Three sa1 sa2 sa3 $ takeSpine (n - 1) m
--}
-
+      takeSpine n (QI.Node pr m sf)
+        = QI.Node pr (takeSpine (n - 1) m) sf
 
 prop_identityA :: [A] -> Property
 prop_identityA lst = toList (fromList lst) === lst
@@ -81,6 +73,9 @@ prop_identityC lst = toList (fromListN (length lst) lst) === lst
 
 prop_identityD :: Queue A -> Property
 prop_identityD stk = fromListN (length stk) (toList stk) === stk
+
+prop_identityE :: [A] -> Property
+prop_identityE lst = toList (fromListNIncremental (length lst) lst) === lst
 
 prop_snoc :: Queue A -> A -> Property
 prop_snoc xs x = toList (xs |> x) === toList xs ++ [x]

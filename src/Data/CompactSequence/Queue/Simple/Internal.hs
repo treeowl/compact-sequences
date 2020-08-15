@@ -8,7 +8,9 @@
 {-# language ViewPatterns #-}
 {-# language Trustworthy #-}
 {-# language TypeFamilies #-}
--- {-# OPTIONS_GHC -Wall #-}
+{-# language FlexibleContexts #-}
+{- OPTIONS_GHC -Wall #-}
+{- OPTIONS_GHC -ddump-simpl #-}
 
 {- |
 Space-efficient queues with amortized \( O(\log n) \) operations.  These
@@ -25,13 +27,16 @@ module Data.CompactSequence.Queue.Simple.Internal
   , take
   , fromList
   , fromListN
+  , fromListNIncremental
   ) where
 
 import qualified Data.CompactSequence.Queue.Internal as Q
 import qualified Data.CompactSequence.Internal.Array as A
+import qualified Data.CompactSequence.Internal.Numbers as N
 import qualified Data.Foldable as F
 import qualified GHC.Exts as Exts
-import Control.Monad.Trans.State.Strict
+import Control.Monad.State.Strict
+import qualified Control.Monad.State.Lazy as LS
 import qualified Prelude as P
 import Prelude hiding (take)
 
@@ -162,72 +167,49 @@ fromList = F.foldl' snoc empty
 -- head of the list at the front of the queue.
 fromListN :: Int -> [a] -> Queue a
 fromListN n xs
-  | (q,[]) <- runState (fromListQN A.one (intToQueueNum n)) xs
-  = Queue q
-  | otherwise
-  = error "Data.CompactSequence.Queue.fromListN: list too long"
+  = Queue $ evalState (fromListQN A.one (N.toBin23 n)) xs
 
--- We use a similar approach to the one we use for stacks.  We should be able
--- to speed up the calculation of the QueueNum, perhaps even reducing its order
--- of growth, but this is sufficient to get linear-time conversion. Every node
--- of the resulting queue will be safe, except possibly the last one. This
--- should make the resulting queue cheap to work with initially.
+-- | \( O(n) \). Convert a list of the given size to a 'Queue', with the
+-- head of the list at the front of the queue. Unlike 'fromListN',
+-- the conversion is performed incrementally. This is generally
+-- beneficial if the list is represented compactly (e.g., an enumeration)
+-- or when it's otherwise not important to consume the entire list
+-- immediately.
+fromListNIncremental :: Int -> [a] -> Queue a
+fromListNIncremental n xs
+  = Queue $ LS.evalState (fromListQN A.one (N.toBin23 n)) xs
 
-data QueueNum
-  = EmptyNum
-  | NodeNum !FNum !QueueNum !RNum
-data FNum = FN1 | FN2 | FN3
-data RNum = RN0 | RN1 | RN2
+-- We use a similar approach to the one we use for stacks.  Every node of the
+-- resulting queue will be safe, except possibly the last one. This should make
+-- the resulting queue cheap to work with initially. In particular, each front
+-- digit (except possibly the last) will be 2 or 3, and each rear digit will be
+-- 0. This arrangement also lets us offer an incremental version of fromListN.
 
-fromListQN :: A.Size n -> QueueNum -> State [a] (Q.Queue n a)
-fromListQN !_ EmptyNum = pure Q.empty
-fromListQN !n (NodeNum prn mn sfn)
-  = case prn of
-      FN1 -> do
-        sa <- state (A.arraySplitListN n)
-        m  <- fromListQN (A.twice n) mn
-        sf <- fromListRearQN n sfn
-        pure (Q.Node (Q.FD1 sa) m sf)
-      FN2 -> do
-        sa1 <- state (A.arraySplitListN n)
-        sa2 <- state (A.arraySplitListN n)
-        m  <- fromListQN (A.twice n) mn
-        sf <- fromListRearQN n sfn
-        pure (Q.Node (Q.FD2 sa1 sa2) m sf)
-      FN3 -> do
-        sa1 <- state (A.arraySplitListN n)
-        sa2 <- state (A.arraySplitListN n)
-        sa3 <- state (A.arraySplitListN n)
-        m  <- fromListQN (A.twice n) mn
-        sf <- fromListRearQN n sfn
-        pure (Q.Node (Q.FD3 sa1 sa2 sa3) m sf)
-
-fromListRearQN :: A.Size n -> RNum -> State [a] (Q.RD n a)
-fromListRearQN !_ RN0 = pure Q.RD0
-fromListRearQN !n RN1 = do
-    sa <- state (A.arraySplitListN n)
-    pure (Q.RD1 sa)
-fromListRearQN !n RN2 = do
-    sa1 <- state (A.arraySplitListN n)
-    sa2 <- state (A.arraySplitListN n)
-    pure (Q.RD2 sa1 sa2)
-
-intToQueueNum :: Int -> QueueNum
-intToQueueNum = go EmptyNum
-  where
-    go !qn 0 = qn
-    go !qn n = go (incQueueNum qn) (n - 1)
-
--- Note: this is not structured at all like `snoc`, because it makes no
--- semantic difference whether an increment occurs at the front or at the rear.
--- We ensure that every node is safe, except possibly the last one. We also
--- lean toward placing elements in the front.
-incQueueNum :: QueueNum -> QueueNum
-incQueueNum EmptyNum = NodeNum FN1 EmptyNum RN0
-incQueueNum (NodeNum FN1 m sf) = NodeNum FN2 m sf
-incQueueNum (NodeNum FN2 m sf) = NodeNum FN3 m sf
-incQueueNum (NodeNum FN3 m RN0) = NodeNum FN3 m RN1
-incQueueNum (NodeNum FN3 m RN1) = NodeNum FN3 (incQueueNum m) RN0
--- The last case is never used by intToQueueNum, because
--- incQueueNum never produces RN2 if it's not given it.
-incQueueNum (NodeNum FN3 m RN2) = NodeNum FN3 (incQueueNum m) RN1
+-- Without these SPECIALIZE pragmas, this doesn't get specialized
+-- for some reason. Bleh!
+{-# SPECIALIZE
+  fromListQN :: A.Size n -> N.Bin23 -> State [a] (Q.Queue n a)
+ #-}
+{-# SPECIALIZE
+  fromListQN :: A.Size n -> N.Bin23 -> LS.State [a] (Q.Queue n a)
+ #-}
+fromListQN :: MonadState [a] m => A.Size n -> N.Bin23 -> m (Q.Queue n a)
+fromListQN !_ N.End23 = do
+  remains <- get
+  if null remains
+    then pure Q.empty
+    else error "Data.CompactSequence.Queue.Simple.fromListQN: List too long"
+fromListQN !sz N.OneEnd23 = do
+  sa <- state (A.arraySplitListN sz)
+  pure $! Q.Node (Q.FD1 sa) Q.Empty Q.RD0
+fromListQN !sz (N.Two23 mn) = do
+  sa1 <- state (A.arraySplitListN sz)
+  sa2 <- state (A.arraySplitListN sz)
+  m <- fromListQN (A.twice sz) mn
+  pure $! Q.Node (Q.FD2 sa1 sa2) m Q.RD0
+fromListQN !sz (N.Three23 mn) = do
+  sa1 <- state (A.arraySplitListN sz)
+  sa2 <- state (A.arraySplitListN sz)
+  sa3 <- state (A.arraySplitListN sz)
+  m <- fromListQN (A.twice sz) mn
+  pure $! Q.Node (Q.FD3 sa1 sa2 sa3) m Q.RD0
