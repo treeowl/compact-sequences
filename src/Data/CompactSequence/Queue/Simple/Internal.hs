@@ -201,7 +201,10 @@ fromListQN !_ N.End23 = do
     else error "Data.CompactSequence.Queue.Simple.fromListQN: List too long"
 fromListQN !sz N.OneEnd23 = do
   sa <- state (A.arraySplitListN sz)
-  pure $! Q.Node (Q.FD1 sa) Q.Empty Q.RD0
+  remains <- get
+  if null remains
+    then pure $! Q.Node (Q.FD1 sa) Q.Empty Q.RD0
+    else error "Data.CompactSequence.Queue.Simple.fromListQN: List too long"
 fromListQN !sz (N.Two23 mn) = do
   sa1 <- state (A.arraySplitListN sz)
   sa2 <- state (A.arraySplitListN sz)
