@@ -29,6 +29,7 @@ library
                  , Data.CompactSequence.Stack.Simple.Internal
                  , Data.CompactSequence.Stack.Internal
                  , Data.CompactSequence.Queue.Simple
+                 , Data.CompactSequence.Queue.Simple.Internal
                  , Data.CompactSequence.Queue.Internal
                  , Data.CompactSequence.Internal.Array
                  , Data.CompactSequence.Internal.Array.Safe
@@ -36,16 +37,26 @@ library
   -- other-extensions:
   build-depends:       base >=4.10.0.0 && < 5.0
                      , primitive
-                     , containers
                      , transformers
   hs-source-dirs:      src
   default-language:    Haskell2010
 
-test-suite compact-sequences-test
+test-suite stack-test
   default-language:    Haskell2010
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
-  main-is:             MyLibTest.hs
+  main-is:             Stack.hs
+  build-depends:       base >=4.10.0.0,
+                       compact-sequences,
+                       QuickCheck,
+                       tasty,
+                       tasty-quickcheck
+
+test-suite queue-test
+  default-language:    Haskell2010
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Queue.hs
   build-depends:       base >=4.10.0.0,
                        compact-sequences,
                        QuickCheck,
