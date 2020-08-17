@@ -23,6 +23,12 @@ data Digit n a
   | Four !(Array n a) !(Array n a) !(Array n a) !(Array n a)
   deriving (Functor, Foldable, Traversable)
 
+instance Eq a => Eq (Deque n a) where
+  (==) = (==) `on` F.toList
+
+instance Ord a => Ord (Deque n a) where
+  compare = compare `on` F.toList
+
 -- | A representation of a possibly-too-large digit.
 data DigitP n a
   = DigP !(Digit n a)
@@ -32,6 +38,9 @@ data DigitP n a
 data DigitM n a
   = ZeroM
   | DigM !(Digit n a)
+
+empty :: Deque n a
+empty = Empty
 
 consDigit :: Array n a -> Digit n a -> DigitP n a
 consDigit sa1 (One sa2) = DigP $ Two sa1 sa2
@@ -55,9 +64,8 @@ consA !n x (Deep pr m sf) = case consDigit x pr of
   FiveP sa1 sa2 sa3 sa4 sa5 ->
     case sf of
       One ta ->
-        case shiftRA (A.twice n) (A.append n sa4 sa5) m of
-          ShiftedR m' ga
-            | (ta1, ta2) <- A.splitArray n ga
+        case shiftRA n sa4 sa5 m of
+          ShiftedR m' ta1 ta2
             -> Deep (Three sa1 sa2 sa3) m' (Three ta1 ta2 ta)
       Four ta1 ta2 ta3 ta4 ->
         Deep (Three sa1 sa2 sa3)
@@ -79,9 +87,8 @@ snocA !n (Deep pr m sf) x = case snocDigit sf x of
   FiveP ta1 ta2 ta3 ta4 ta5 ->
     case pr of
       One sa ->
-        case shiftLA (A.twice n) m (A.append n ta1 ta2) of
-          ShiftedL ga m'
-            | (sa1, sa2) <- A.splitArray n ga
+        case shiftLA n m ta1 ta2 of
+          ShiftedL sa1 sa2 m'
             -> Deep (Three sa sa1 sa2) m' (Three ta3 ta4 ta5)
       Four sa1 sa2 sa3 sa4 ->
         Deep (Two sa1 sa2)
@@ -145,8 +152,7 @@ viewLA !n (Deep pr m sf)
             , (me1, me2) <- A.splitArray n me
             -> Deep (Two mb1 mb2) m' (Three me1 me2 ta)
         Four ta1 ta2 ta3 ta4
-            | ShiftedL mb m' <- shiftLA (A.twice n) m (A.append n ta1 ta2)
-            , (m1, m2) <- A.splitArray n mb
+            | ShiftedL m1 m2 m' <- shiftLA n m ta1 ta2
             -> Deep (Two m1 m2) m' (Two ta3 ta4)
 
 viewRA :: Size n -> Deque n a -> ViewR n a
@@ -177,31 +183,37 @@ viewRA !n (Deep pr m sf)
             , (me1, me2) <- A.splitArray n me
             -> Deep (Three sa mb1 mb2) m' (Two me1 me2)
         Four sa1 sa2 sa3 sa4
-            | ShiftedR m' me <- shiftRA (A.twice n) (A.append n sa3 sa4) m
-            , (m1, m2) <- A.splitArray n me
+            | ShiftedR m' m1 m2 <- shiftRA n sa3 sa4 m
             -> Deep (Two sa1 sa2) m' (Two m1 m2)
 
-data ShiftedL n a = ShiftedL !(Array n a) (Deque n a)
-data ShiftedR n a = ShiftedR (Deque n a) !(Array n a)
+data ShiftedL n a = ShiftedL !(Array n a) !(Array n a) (Deque ('Twice n) a)
+data ShiftedR n a = ShiftedR (Deque ('Twice n) a) !(Array n a) !(Array n a)
 
-shiftLA :: Size n -> Deque n a -> Array n a -> ShiftedL n a
-shiftLA !_ Empty sa = ShiftedL sa Empty
-shiftLA !_ (Shallow sa1) sa2 = ShiftedL sa1 (Shallow sa2)
+shiftLA :: Size n -> Deque ('Twice n) a -> Array n a -> Array n a -> ShiftedL n a
+shiftLA !_ Empty sa1 sa2 = ShiftedL sa1 sa2 Empty
+shiftLA !n (Shallow sa) ta1 ta2
+  | (sa1, sa2) <- A.splitArray n sa
+  = ShiftedL sa1 sa2 (Shallow (A.append n ta1 ta2))
+{-
+shiftLA !n d@(Deep _ _ Four{}) x
+  = case viewLA n d of
+      ConsL sa d' -> ShiftedL sa (snocA n d' x)
+      EmptyL -> ShiftedL x Empty
 shiftLA n q x = case viewLA n (snocA n q x) of
   ConsL p q' -> ShiftedL p q'
   _ -> error "shiftLA whoopsie"
-{-
-shiftLA !n (Deep pr m sf) sa
-  | (x, pr') <- viewLDigit pr
-  = ShiftedL x (sa `seq` fixup n pr' m (snocDigit sf sa))
 -}
 
-shiftRA :: Size n -> Array n a -> Deque n a -> ShiftedR n a
-shiftRA !_ sa Empty = ShiftedR Empty sa
-shiftRA !_ sa1 (Shallow sa2) = ShiftedR (Shallow sa1) sa2
+shiftRA :: Size n -> Array n a -> Array n a -> Deque ('Twice n) a -> ShiftedR n a
+shiftRA !_ sa1 sa2 Empty = ShiftedR Empty sa1 sa2
+shiftRA !n sa1 sa2 (Shallow ta)
+  | (ta1, ta2) <- A.splitArray n ta
+  = ShiftedR (Shallow (A.append n sa1 sa2)) ta1 ta2
+{-
 shiftRA n x q = case viewRA n (consA n x q) of
   SnocR q' p -> ShiftedR q' p
   _ -> error "shiftRA whoopsie"
+-}
 {-
 shiftRA !n sa (Deep pr m sf)
   | (sf', x) <- viewRDigit sf
