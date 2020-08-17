@@ -162,26 +162,24 @@ viewRA !n (Deep pr m sf)
           SnocR m' m1
             | (ta1, ta2) <- A.splitArray n m1
             -> Deep pr m' (Two ta1 ta2)
-{-
-        Three ta1 ta2 ta3 -> case viewLA (A.twice n) m of
-          EmptyL -> Deep (Two ta1 ta2) Empty (One ta3)
-          ConsL m1 m'
-            | (sa1, sa2) <- A.splitArray n m1
-            -> Deep (Two sa1 sa2) m' sf
-        One ta -> case unconsUnsnocA (A.twice n) m of
-          EmptyUCUS -> Shallow ta
+        Three sa1 sa2 sa3 -> case viewRA (A.twice n) m of
+          EmptyR -> Deep (Two sa1 sa2) Empty (One sa3)
+          SnocR m' mn
+            | (ta1, ta2) <- A.splitArray n mn
+            -> Deep pr m' (Two ta1 ta2)
+        One sa -> case unconsUnsnocA (A.twice n) m of
+          EmptyUCUS -> Shallow sa
           OneUCUS me
             | (m1, m2) <- A.splitArray n me
-            -> Deep (Two m1 m2) Empty sf
+            -> Deep pr Empty (Two m1 m2)
           UCUS mb m' me
             | (mb1, mb2) <- A.splitArray n mb
             , (me1, me2) <- A.splitArray n me
-            -> Deep (Two mb1 mb2) m' (Three me1 me2 ta)
-        Four ta1 ta2 ta3 ta4
-            | ShiftedL mb m' <- shiftLA (A.twice n) m (A.append n ta1 ta2)
-            , (m1, m2) <- A.splitArray n mb
-            -> Deep (Two m1 m2) m' (Two ta3 ta4)
--}
+            -> Deep (Three sa mb1 mb2) m' (Two me1 me2)
+        Four sa1 sa2 sa3 sa4
+            | ShiftedR m' me <- shiftRA (A.twice n) (A.append n sa3 sa4) m
+            , (m1, m2) <- A.splitArray n me
+            -> Deep (Two sa1 sa2) m' (Two m1 m2)
 
 data ShiftedL n a = ShiftedL !(Array n a) (Deque n a)
 data ShiftedR n a = ShiftedR (Deque n a) !(Array n a)
@@ -189,6 +187,9 @@ data ShiftedR n a = ShiftedR (Deque n a) !(Array n a)
 shiftLA :: Size n -> Deque n a -> Array n a -> ShiftedL n a
 shiftLA !_ Empty sa = ShiftedL sa Empty
 shiftLA !_ (Shallow sa1) sa2 = ShiftedL sa1 (Shallow sa2)
+shiftLA n q x = case viewLA n (snocA n q x) of
+  ConsL p q' -> ShiftedL p q'
+  _ -> error "shiftLA whoopsie"
 {-
 shiftLA !n (Deep pr m sf) sa
   | (x, pr') <- viewLDigit pr
@@ -198,6 +199,9 @@ shiftLA !n (Deep pr m sf) sa
 shiftRA :: Size n -> Array n a -> Deque n a -> ShiftedR n a
 shiftRA !_ sa Empty = ShiftedR Empty sa
 shiftRA !_ sa1 (Shallow sa2) = ShiftedR (Shallow sa1) sa2
+shiftRA n x q = case viewRA n (consA n x q) of
+  SnocR q' p -> ShiftedR q' p
+  _ -> error "shiftRA whoopsie"
 {-
 shiftRA !n sa (Deep pr m sf)
   | (sf', x) <- viewRDigit sf
@@ -207,6 +211,7 @@ shiftRA !n sa (Deep pr m sf)
 consSnocA :: Size n -> Array n a -> Deque n a -> Array n a -> Deque n a
 consSnocA !_ !sa1 Empty !sa2 = Deep (One sa1) Empty (One sa2)
 consSnocA !_ !sa1 (Shallow sa2) !sa3 = Deep (Two sa1 sa2) Empty (One sa3)
+consSnocA n b q e = consA n b (snocA n q e)
 {-
 consSnocA !n !sa1 (Deep pr m sf) !sa2
   = fixup n (consDigit sa1 pr) m (snocDigit sf sa2)
@@ -220,6 +225,11 @@ data UCUS n a
 unconsUnsnocA :: Size n -> Deque n a -> UCUS n a
 unconsUnsnocA !_ Empty = EmptyUCUS
 unconsUnsnocA !_ (Shallow sa) = OneUCUS sa
+unconsUnsnocA n q = case viewLA n q of
+  EmptyL -> EmptyUCUS
+  ConsL x q' -> case viewRA n q' of
+    EmptyR -> OneUCUS x
+    SnocR q'' y -> UCUS x q'' y
 {-
 unconsUnsnocA !n (Deep pr m sf)
   | (sa1, pr') <- viewLDigit pr
