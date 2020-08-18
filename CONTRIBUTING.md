@@ -9,9 +9,9 @@ the debit invariant. The other structures work
 according to exactly the same principles, but with
 a lot more moving parts.
 
-Speaking of debit invariants, it
-will be very helpful for contributors to have some
-intuition around Okasaki's debit analysis framework.
+Speaking of debit invariants, contributors who want to really
+dig into the deep guts of these implementations should be somewhat
+familiar with Okasaki's debit analysis framework.
 This is explained very accessibly in
 [his thesis](http://www.cs.cmu.edu/~rwh/theses/okasaki.pdf),
 as well as
@@ -23,4 +23,5 @@ get a sense of how it's applied.
 Note that almost everywhere in this package,
 we either *must* be lazy or *must* be strict
 to maintain the desired space and time bounds.
-There isn't a lot of wiggle room.
+There's a little wiggle room in some places, but
+not terribly much.
