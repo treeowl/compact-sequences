@@ -2,7 +2,6 @@
 {-# language TypeFamilies #-}
 {-# language DataKinds #-}
 {-# language TypeOperators #-}
-{-# language NoStarIsType #-}
 {-# language Safe #-}
 {-# language ScopedTypeVariables #-}
 {-# language InstanceSigs #-}

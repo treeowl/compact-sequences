@@ -9,6 +9,7 @@
 {-# language Trustworthy #-}
 {-# language TypeFamilies #-}
 {-# language FlexibleContexts #-}
+{-# language LambdaCase #-}
 {- OPTIONS_GHC -Wall #-}
 {- OPTIONS_GHC -ddump-simpl #-}
 
@@ -110,7 +111,7 @@ instance Foldable Deque where
 
   null (Deque D.Empty) = True
   null _ = False
-{-
+
   -- Note: length only does O(log n) *unshared* work, but it does O(n) amortized
   -- work because it has to force the entire spine. We could avoid
   -- this, of course, by storing the size with the dequeue.
@@ -118,17 +119,14 @@ instance Foldable Deque where
     where
       go :: Int -> A.Size m -> D.Deque m a -> Int
       go !acc !_s D.Empty = acc
-      go !acc !s (D.Node pr m sf) = go (acc + lpr + lsf) (A.twice s) m
+      go !acc !s (D.Shallow _) = acc + A.getSize s
+      go !acc !s (D.Deep pr m sf) = go (acc + ld pr + ld sf) (A.twice s) m
         where
-          lpr = case pr of
-                  D.FD1{} -> A.getSize s
-                  D.FD2{} -> 2*A.getSize s
-                  D.FD3{} -> 3*A.getSize s
-          lsf = case sf of
-                  D.RD0 -> 0
-                  D.RD1{} -> A.getSize s
-                  D.RD2{} -> 2*A.getSize s
--}
+          ld = \case
+                  D.One{} -> A.getSize s
+                  D.Two{} -> 2*A.getSize s
+                  D.Three{} -> 3*A.getSize s
+                  D.Four{} -> 4*A.getSize s
 
 instance Show a => Show (Deque a) where
     showsPrec p xs = showParen (p > 10) $
