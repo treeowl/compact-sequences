@@ -403,7 +403,6 @@ shiftRA :: Size n -> Array n a -> Array n a -> Deque ('Twice n) a -> ShiftedR n 
 shiftRA !_ !sa1 !sa2 Empty = ShiftedR Empty sa1 sa2
 shiftRA n sa1 sa2 (Shallow ta)
   = shriftR n ta (Shallow (A.append n sa1 sa2))
-
 shiftRA n x y (Deep11 sa1 m ta1)
   = shriftR n ta1 $ case viewRA (A.twice (A.twice n)) m of
       EmptyR -> Deep11 (A.append n x y) Empty sa1
@@ -435,7 +434,7 @@ shiftRA n x y (Deep24 sa1 sa2 m ta1 ta2 ta3 ta4)
 
 shiftRA n x y (Deep31 sa1 sa2 sa3 m ta1)
   = shriftR n ta1 $ case shiftRA (A.twice n) sa2 sa3 m of
-      ShiftedR m' me1 me2 -> Deep32 (A.append n x y) sa1 sa2 m' me1 me2
+      ShiftedR m' me1 me2 -> Deep22 (A.append n x y) sa1 m' me1 me2
 shiftRA n x y (Deep32 sa1 sa2 sa3 m ta1 ta2)
   = shriftR n ta2 $ Deep41 (A.append n x y) sa1 sa2 sa3 m ta1
 shiftRA n x y (Deep33 sa1 sa2 sa3 m ta1 ta2 ta3)
@@ -468,11 +467,43 @@ shriftR !n !sa d
 consSnocA :: Size n -> Array n a -> Deque n a -> Array n a -> Deque n a
 consSnocA !_ !sa1 Empty !sa2 = Deep11 sa1 Empty sa2
 consSnocA !_ !sa1 (Shallow sa2) !sa3 = Deep21 sa1 sa2 Empty sa3
-consSnocA n b q e = consA n b (snocA n q e)
-{-
-consSnocA !n !sa1 (Deep pr m sf) !sa2
-  = fixup n (consDigit sa1 pr) m (snocDigit sf sa2)
--}
+consSnocA !_ !x (Deep11 sa1 m ta1) !y
+  = Deep22 x sa1 m ta1 y
+consSnocA !_ !x (Deep12 sa1 m ta1 ta2) !y
+  = Deep23 x sa1 m ta1 ta2 y
+consSnocA !_ !x (Deep13 sa1 m ta1 ta2 ta3) !y
+  = Deep24 x sa1 m ta1 ta2 ta3 y
+consSnocA !n !x (Deep14 sa1 m ta1 ta2 ta3 ta4) !y
+  = Deep23 x sa1 (snocA (A.twice n) m (A.append n ta1 ta2)) ta3 ta4 y
+
+consSnocA !_ !x (Deep21 sa1 sa2 m ta1) !y
+  = Deep32 x sa1 sa2 m ta1 y
+consSnocA !_ !x (Deep22 sa1 sa2 m ta1 ta2) !y
+  = Deep33 x sa1 sa2 m ta1 ta2 y
+consSnocA !_ !x (Deep23 sa1 sa2 m ta1 ta2 ta3) !y
+  = Deep34 x sa1 sa2 m ta1 ta2 ta3 y
+consSnocA !n !x (Deep24 sa1 sa2 m ta1 ta2 ta3 ta4) !y
+  = Deep33 x sa1 sa2 (snocA (A.twice n) m (A.append n ta1 ta2)) ta3 ta4 y
+
+consSnocA !_ !x (Deep31 sa1 sa2 sa3 m ta1) !y
+  = Deep42 x sa1 sa2 sa3 m ta1 y
+consSnocA !_ !x (Deep32 sa1 sa2 sa3 m ta1 ta2) !y
+  = Deep43 x sa1 sa2 sa3 m ta1 ta2 y
+consSnocA !_ !x (Deep33 sa1 sa2 sa3 m ta1 ta2 ta3) !y
+  = Deep44 x sa1 sa2 sa3 m ta1 ta2 ta3 y
+consSnocA !n !x (Deep34 sa1 sa2 sa3 m ta1 ta2 ta3 ta4) !y
+  = Deep23 x sa1
+           (consSnocA (A.twice n) (A.append n sa2 sa3) m (A.append n ta1 ta2))
+           ta3 ta4 y
+
+consSnocA n !x (Deep41 sa1 sa2 sa3 sa4 m ta1) !y
+  = Deep32 x sa1 sa2 (consA (A.twice n) (A.append n sa3 sa4) m) ta1 y
+consSnocA n !x (Deep42 sa1 sa2 sa3 sa4 m ta1 ta2) !y
+  = Deep33 x sa1 sa2 (consA (A.twice n) (A.append n sa3 sa4) m) ta1 ta2 y
+consSnocA n !x (Deep43 sa1 sa2 sa3 sa4 m ta1 ta2 ta3) !y
+  = Deep32 x sa1 sa2 (consSnocA (A.twice n) (A.append n sa3 sa4) m (A.append n ta1 ta2)) ta3 y
+consSnocA n !x (Deep44 sa1 sa2 sa3 sa4 m ta1 ta2 ta3 ta4) !y
+  = Deep33 x sa1 sa2 (consSnocA (A.twice n) (A.append n sa3 sa4) m (A.append n ta1 ta2)) ta3 ta4 y
 
 data UCUS n a
   = EmptyUCUS
