@@ -5,7 +5,6 @@
 {-# language RoleAnnotations #-}
 {-# language MagicHash #-}
 {-# language UnboxedTuples #-}
-{-# language NoStarIsType #-}
 {-# language RankNTypes #-}
 {-# language DeriveTraversable #-}
 {-# language Unsafe #-}
