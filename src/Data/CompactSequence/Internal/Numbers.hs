@@ -47,3 +47,17 @@ toBin23 n0 = go (n0 + 2)
       0 -> Two23 $ go (unsafeShiftR n 1)
       _ -> Three23 $ go (unsafeShiftR n 1)
 {-# NOINLINE toBin23 #-}
+
+data Bin45 = Four45 !Bin45 | Five45 !Bin45 | End45 | OneEnd45 | TwoEnd45 | ThreeEnd45
+
+toBin45 :: Int -> Bin45
+toBin45 n0 = go (n0 + 4)
+  where
+    go 4 = End45
+    go 5 = OneEnd45
+    go 6 = TwoEnd45
+    go 7 = ThreeEnd45
+    go n = case n .&. 1 of
+      0 -> Four45 $ go (unsafeShiftR n 1)
+      _ -> Five45 $ go (unsafeShiftR n 1)
+{-# NOINLINE toBin45 #-}

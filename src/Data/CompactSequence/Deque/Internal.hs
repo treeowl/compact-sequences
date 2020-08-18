@@ -9,6 +9,7 @@
 module Data.CompactSequence.Deque.Internal where
 import qualified Data.CompactSequence.Internal.Array as A
 import Data.CompactSequence.Internal.Array (Array, Size (..), Mult (..))
+import qualified Data.CompactSequence.Internal.Numbers as N
 import qualified Data.Foldable as F
 import Data.Function (on)
 
@@ -646,3 +647,6 @@ pattern Deep pr m sf <- (matchDeep -> Deep_ pr m sf)
     Deep (Four x y z w) m (Four a b c d) = Deep44 x y z w m a b c d
 
 {-# COMPLETE Empty, Shallow, Deep #-}
+
+-- Converts a list of sz * n elements to a deque.
+--fromListN :: Size sz -> Int -> 
