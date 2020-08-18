@@ -6,17 +6,18 @@ directly use an underlying array-based implementation, without doing any
 special optimization for the first few and last few elements of the queue.
 -}
 
-module Data.CompactSequence.Queue.Simple
-  ( Queue (Empty, (:<))
+module Data.CompactSequence.Deque.Simple
+  ( Deque (Empty, (:<), (:>))
   , (|>)
   , empty
+  , cons
   , snoc
   , uncons
-  , take
+  , unsnoc
+--  , take
   , fromList
   , fromListN
-  , fromListNIncremental
   ) where
 
-import Data.CompactSequence.Queue.Simple.Internal
+import Data.CompactSequence.Deque.Simple.Internal
 import Prelude ()
