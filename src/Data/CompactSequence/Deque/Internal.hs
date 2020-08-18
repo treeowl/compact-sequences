@@ -513,18 +513,88 @@ data UCUS n a
 unconsUnsnocA :: Size n -> Deque n a -> UCUS n a
 unconsUnsnocA !_ Empty = EmptyUCUS
 unconsUnsnocA !_ (Shallow sa) = OneUCUS sa
-unconsUnsnocA n q = case viewLA n q of
-  EmptyL -> EmptyUCUS
-  ConsL x q' -> case viewRA n q' of
-    EmptyR -> OneUCUS x
-    SnocR q'' y -> UCUS x q'' y
-{-
-unconsUnsnocA !n (Deep pr m sf)
-  | (sa1, pr') <- viewLDigit pr
-  , (sf', sa2) <- viewRDigit sf
-  = UCUS sa1 (fixup n pr' m sf') sa2
--}
+unconsUnsnocA n (Deep11 sa1 m ta1)
+  = flip (UCUS sa1) ta1 $
+      case unconsUnsnocA (A.twice n) m of
+        EmptyUCUS -> Empty
+        OneUCUS mm
+          | (m1, m2) <- A.splitArray n mm
+          -> Deep11 m1 Empty m2
+        UCUS mb m' me
+          | (mb1, mb2) <- A.splitArray n mb
+          , (me1, me2) <- A.splitArray n me
+          -> Deep22 mb1 mb2 m' me1 me2
+unconsUnsnocA n (Deep12 sa1 m ta1 ta2)
+  = flip (UCUS sa1) ta2 $
+      case unconsUnsnocA (A.twice n) m of
+        EmptyUCUS -> Shallow ta1
+        OneUCUS mm
+          | (m1, m2) <- A.splitArray n mm
+          -> Deep21 m1 m2 Empty ta1
+        UCUS mb m' me
+          | (mb1, mb2) <- A.splitArray n mb
+          , (me1, me2) <- A.splitArray n me
+          -> Deep23 mb1 mb2 m' me1 me2 ta1
+unconsUnsnocA n (Deep13 sa1 m ta1 ta2 ta3)
+  = flip (UCUS sa1) ta3 $
+      case viewLA (A.twice n) m of
+        EmptyL -> Deep11 ta1 Empty ta2
+        ConsL mb m'
+          | (mb1, mb2) <- A.splitArray n mb
+          -> Deep22 mb1 mb2 m' ta1 ta2
+unconsUnsnocA n (Deep14 sa1 m ta1 ta2 ta3 ta4)
+  = flip (UCUS sa1) ta4 $
+      case viewLA (A.twice n) m of
+        EmptyL -> Deep12 ta1 Empty ta2 ta3
+        ConsL mb m'
+          | (mb1, mb2) <- A.splitArray n mb
+          -> Deep23 mb1 mb2 m' ta1 ta2 ta3
 
+unconsUnsnocA !n (Deep21 sa1 sa2 m ta1)
+  = flip (UCUS sa1) ta1 $
+      case unconsUnsnocA (A.twice n) m of
+        EmptyUCUS -> Shallow sa2
+        OneUCUS mm
+          | (m1, m2) <- A.splitArray n mm
+          -> Deep21 sa2 m1 Empty m2
+        UCUS mb m' me
+          | (mb1, mb2) <- A.splitArray n mb
+          , (me1, me2) <- A.splitArray n me
+          -> Deep32 sa2 mb1 mb2 m' me1 me2
+unconsUnsnocA !_ (Deep22 sa1 sa2 m ta1 ta2)
+  = UCUS sa1 (Deep11 sa2 m ta1) ta2
+unconsUnsnocA !_ (Deep23 sa1 sa2 m ta1 ta2 ta3)
+  = UCUS sa1 (Deep12 sa2 m ta1 ta2) ta3
+unconsUnsnocA !_ (Deep24 sa1 sa2 m ta1 ta2 ta3 ta4)
+  = UCUS sa1 (Deep13 sa2 m ta1 ta2 ta3) ta4
+
+unconsUnsnocA !n (Deep31 sa1 sa2 sa3 m ta1)
+  = flip (UCUS sa1) ta1 $
+      case viewRA (A.twice n) m of
+        EmptyR -> Deep11 sa2 Empty sa3
+        SnocR m' me
+          | (me1, me2) <- A.splitArray n me
+          -> Deep22 sa2 sa3 m' me1 me2
+unconsUnsnocA !_ (Deep32 sa1 sa2 sa3 m ta1 ta2)
+  = UCUS sa1 (Deep21 sa2 sa3 m ta1) ta2
+unconsUnsnocA !_ (Deep33 sa1 sa2 sa3 m ta1 ta2 ta3)
+  = UCUS sa1 (Deep22 sa2 sa3 m ta1 ta2) ta3
+unconsUnsnocA !_ (Deep34 sa1 sa2 sa3 m ta1 ta2 ta3 ta4)
+  = UCUS sa1 (Deep23 sa2 sa3 m ta1 ta2 ta3) ta4
+
+unconsUnsnocA !n (Deep41 sa1 sa2 sa3 sa4 m ta1)
+  = flip (UCUS sa1) ta1 $
+      case viewRA (A.twice n) m of
+        EmptyR -> Deep21 sa2 sa3 Empty sa4
+        SnocR m' me
+          | (me1, me2) <- A.splitArray n me
+          -> Deep32 sa2 sa3 sa4 m' me1 me2
+unconsUnsnocA !_ (Deep42 sa1 sa2 sa3 sa4 m ta1 ta2)
+  = UCUS sa1 (Deep31 sa2 sa3 sa4 m ta1) ta2
+unconsUnsnocA !_ (Deep43 sa1 sa2 sa3 sa4 m ta1 ta2 ta3)
+  = UCUS sa1 (Deep32 sa2 sa3 sa4 m ta1 ta2) ta3
+unconsUnsnocA !_ (Deep44 sa1 sa2 sa3 sa4 m ta1 ta2 ta3 ta4)
+  = UCUS sa1 (Deep33 sa2 sa3 sa4 m ta1 ta2 ta3) ta4
 
 
 data Deque_ n a
