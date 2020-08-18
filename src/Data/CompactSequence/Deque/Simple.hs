@@ -17,7 +17,6 @@ module Data.CompactSequence.Deque.Simple
 --  , take
   , fromList
   , fromListN
-  , fromListNIncremental
   ) where
 
 import Data.CompactSequence.Deque.Simple.Internal

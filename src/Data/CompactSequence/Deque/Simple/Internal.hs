@@ -13,9 +13,9 @@
 {- OPTIONS_GHC -ddump-simpl #-}
 
 {- |
-Space-efficient queues with amortized \( O(\log n) \) operations.  These
+Space-efficient deques with amortized \( O(\log n) \) operations.  These
 directly use an underlying array-based implementation, without doing any
-special optimization for the first few and last few elements of the queue.
+special optimization for the first few and last few elements of the deque.
 -}
 
 module Data.CompactSequence.Deque.Simple.Internal
@@ -30,7 +30,6 @@ module Data.CompactSequence.Deque.Simple.Internal
 --  , take
   , fromList
   , fromListN
-  , fromListNIncremental
   ) where
 
 import qualified Data.CompactSequence.Deque.Internal as D
@@ -39,15 +38,14 @@ import qualified Data.CompactSequence.Internal.Numbers as N
 import qualified Data.Foldable as F
 import qualified GHC.Exts as Exts
 import Control.Monad.State.Strict
-import qualified Control.Monad.State.Lazy as LS
 import qualified Prelude as P
 import Prelude hiding (take)
 
--- | A queue.
+-- | A deque.
 newtype Deque a = Deque (D.Deque 'A.Mul1 a)
   deriving (Functor, Traversable, Eq, Ord)
 
--- | The empty queue.
+-- | The empty deque.
 empty :: Deque a
 empty = Deque D.empty
 
@@ -115,7 +113,7 @@ instance Foldable Deque where
 {-
   -- Note: length only does O(log n) *unshared* work, but it does O(n) amortized
   -- work because it has to force the entire spine. We could avoid
-  -- this, of course, by storing the size with the queue.
+  -- this, of course, by storing the size with the dequeue.
   length (Deque q) = go 0 A.one q
     where
       go :: Int -> A.Size m -> D.Deque m a -> Int
@@ -136,7 +134,6 @@ instance Show a => Show (Deque a) where
     showsPrec p xs = showParen (p > 10) $
         showString "fromList " . shows (F.toList xs)
 
-{-
 instance Exts.IsList (Deque a) where
   type Item (Deque a) = a
   toList = F.toList
@@ -152,102 +149,14 @@ instance Semigroup (Deque a) where
 
 instance Monoid (Deque a) where
   mempty = empty
--}
-
-{-
--- | Take up to the given number of elements from the front
--- of a queue to form a new queue. \( O(\min (k, n)) \), where
--- \( k \) is the integer argument and \( n \) is the size of
--- the queue.
-take :: Int -> Deque a -> Deque a
-take n s
-  | n <= 0 = Empty
-  | compareLength n s == LT
-  = fromListN n (P.take n (F.toList s))
-  | otherwise = s
-
--- | \( O(\min(m, n)) \). Compare an 'Int' to the length of a 'Deque'.
---
--- @compareLength n xs = compare n (length xs)@
-compareLength :: Int -> Deque a -> Ordering
-compareLength n0 (Deque que0) = go A.one n0 que0
-  where
-    go :: A.Size n -> Int -> D.Deque n a -> Ordering
-    go !_sz n D.Empty = compare n 0
-    go _sz n _ | n <= 0 = LT
-    go sz n (D.Node pr m sf)
-      = go (A.twice sz) (n - frontLen sz pr - rearLen sz sf) m
-
-frontLen :: A.Size n -> D.FD n a -> Int
-frontLen s D.FD1{} = A.getSize s
-frontLen s D.FD2{} = 2 * A.getSize s
-frontLen s D.FD3{} = 3 * A.getSize s
-
-rearLen :: A.Size n -> D.RD n a -> Int
-rearLen s D.RD0{} = 0
-rearLen s D.RD1{} = A.getSize s
-rearLen s D.RD2{} = 2 * A.getSize s
--}
 
 -- | \( O(n \log n) \). Convert a list to a 'Deque', with the head of the
--- list at the front of the queue.
+-- list at the front of the deque.
 fromList :: [a] -> Deque a
 fromList = F.foldl' snoc empty
 
 -- | \( O(n) \). Convert a list of the given size to a 'Deque', with the
--- head of the list at the front of the queue.
+-- head of the list at the front of the deque.
 fromListN :: Int -> [a] -> Deque a
 fromListN n xs
-  = fromList xs
---  = Deque $ evalState (fromListQN A.one (N.toBin23 n)) xs
-
--- | \( O(n) \). Convert a list of the given size to a 'Deque', with the
--- head of the list at the front of the queue. Unlike 'fromListN',
--- the conversion is performed incrementally. This is generally
--- beneficial if the list is represented compactly (e.g., an enumeration)
--- or when it's otherwise not important to consume the entire list
--- immediately.
-fromListNIncremental :: Int -> [a] -> Deque a
-fromListNIncremental n xs
-  = fromList xs
-{-
-  = Deque $ LS.evalState (fromListQN A.one (N.toBin23 n)) xs
-
--- We use a similar approach to the one we use for stacks.  Every node of the
--- resulting queue will be safe, except possibly the last one. This should make
--- the resulting queue cheap to work with initially. In particular, each front
--- digit (except possibly the last) will be 2 or 3, and each rear digit will be
--- 0. This arrangement also lets us offer an incremental version of fromListN.
-
--- Without these SPECIALIZE pragmas, this doesn't get specialized
--- for some reason. Bleh!
-{-# SPECIALIZE
-  fromListQN :: A.Size n -> N.Bin23 -> State [a] (D.Deque n a)
- #-}
-{-# SPECIALIZE
-  fromListQN :: A.Size n -> N.Bin23 -> LS.State [a] (D.Deque n a)
- #-}
-fromListQN :: MonadState [a] m => A.Size n -> N.Bin23 -> m (D.Deque n a)
-fromListQN !_ N.End23 = do
-  remains <- get
-  if null remains
-    then pure D.empty
-    else error "Data.CompactSequence.Deque.Simple.fromListQN: List too long"
-fromListQN !sz N.OneEnd23 = do
-  sa <- state (A.arraySplitListN sz)
-  remains <- get
-  if null remains
-    then pure $! D.Node (D.FD1 sa) D.Empty D.RD0
-    else error "Data.CompactSequence.Deque.Simple.fromListQN: List too long"
-fromListQN !sz (N.Two23 mn) = do
-  sa1 <- state (A.arraySplitListN sz)
-  sa2 <- state (A.arraySplitListN sz)
-  m <- fromListQN (A.twice sz) mn
-  pure $! D.Node (D.FD2 sa1 sa2) m D.RD0
-fromListQN !sz (N.Three23 mn) = do
-  sa1 <- state (A.arraySplitListN sz)
-  sa2 <- state (A.arraySplitListN sz)
-  sa3 <- state (A.arraySplitListN sz)
-  m <- fromListQN (A.twice sz) mn
-  pure $! D.Node (D.FD3 sa1 sa2 sa3) m D.RD0
--}
+  = Deque $ evalState (D.fromListNM A.one n) xs

@@ -75,9 +75,6 @@ prop_identityC lst = toList (fromListN (length lst) lst) === lst
 prop_identityD :: Deque A -> Property
 prop_identityD stk = fromListN (length stk) (toList stk) === stk
 
-prop_identityE :: [A] -> Property
-prop_identityE lst = toList (fromListNIncremental (length lst) lst) === lst
-
 prop_snoc :: Deque A -> A -> Property
 prop_snoc xs x = toList (xs |> x) === toList xs ++ [x]
 
@@ -89,8 +86,8 @@ prop_uncons xs = case xs of
 prop_uncons_of_empty :: Property
 prop_uncons_of_empty = uncons (Empty @(Deque A)) === Nothing
 
---prop_append :: Deque A -> Deque A -> Property
---prop_append xs ys = toList (xs <> ys) === toList xs ++ toList ys
+prop_append :: Deque A -> Deque A -> Property
+prop_append xs ys = toList (xs <> ys) === toList xs ++ toList ys
 
 --prop_compareLength :: Int -> Deque () -> Property
 --prop_compareLength n s = compareLength n s === compare n (length s)

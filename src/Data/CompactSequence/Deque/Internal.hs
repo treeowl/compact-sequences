@@ -4,6 +4,7 @@
 {-# language DataKinds #-}
 {-# language PatternSynonyms #-}
 {-# language ViewPatterns #-}
+{-# language FlexibleContexts #-}
 {-# OPTIONS_GHC -Wall #-}
 
 module Data.CompactSequence.Deque.Internal where
@@ -11,6 +12,7 @@ import qualified Data.CompactSequence.Internal.Array as A
 import Data.CompactSequence.Internal.Array (Array, Size (..), Mult (..))
 import qualified Data.CompactSequence.Internal.Numbers as N
 import qualified Data.Foldable as F
+import Control.Monad.Trans.State.Strict
 import Data.Function (on)
 
 data Deque n a
@@ -71,45 +73,14 @@ data Deque n a
 --  | Deep !(Digit n a) (Deque ('Twice n) a) !(Digit n a)
   deriving (Functor, Foldable, Traversable)
 
-data Digit n a
-  = One !(Array n a)
-  | Two !(Array n a) !(Array n a)
-  | Three !(Array n a) !(Array n a) !(Array n a)
-  | Four !(Array n a) !(Array n a) !(Array n a) !(Array n a)
-  deriving (Functor, Foldable, Traversable)
-
 instance Eq a => Eq (Deque n a) where
   (==) = (==) `on` F.toList
 
 instance Ord a => Ord (Deque n a) where
   compare = compare `on` F.toList
 
--- | A representation of a possibly-too-large digit.
-data DigitP n a
-  = DigP !(Digit n a)
-  | FiveP !(Array n a) !(Array n a) !(Array n a) !(Array n a) !(Array n a)
-
--- | A representation of a possibly-too-small digit.
-data DigitM n a
-  = ZeroM
-  | DigM !(Digit n a)
-
 empty :: Deque n a
 empty = Empty
-
-consDigit :: Array n a -> Digit n a -> DigitP n a
-consDigit sa1 (One sa2) = DigP $ Two sa1 sa2
-consDigit sa1 (Two sa2 sa3) = DigP $ Three sa1 sa2 sa3
-consDigit sa1 (Three sa2 sa3 sa4) = DigP $ Four sa1 sa2 sa3 sa4
-consDigit sa1 (Four sa2 sa3 sa4 sa5) = FiveP sa1 sa2 sa3 sa4 sa5
-{-# INLINE consDigit #-}
-
-snocDigit :: Digit n a -> Array n a -> DigitP n a
-snocDigit (One sa1) sa2 = DigP $ Two sa1 sa2
-snocDigit (Two sa1 sa2) sa3 = DigP $ Three sa1 sa2 sa3
-snocDigit (Three sa1 sa2 sa3) sa4 = DigP $ Four sa1 sa2 sa3 sa4
-snocDigit (Four sa1 sa2 sa3 sa4) sa5 = FiveP sa1 sa2 sa3 sa4 sa5
-{-# INLINE snocDigit #-}
 
 consA :: Size n -> Array n a -> Deque n a -> Deque n a
 consA !_ !sa Empty = Shallow sa
@@ -205,20 +176,6 @@ data ViewL n a
 data ViewR n a
   = EmptyR
   | SnocR (Deque n a) !(Array n a)
-
-viewLDigit :: Digit n a -> (Array n a, DigitM n a)
-viewLDigit (One a) = (a, ZeroM)
-viewLDigit (Two a b) = (a, DigM (One b))
-viewLDigit (Three a b c) = (a, DigM (Two b c))
-viewLDigit (Four a b c d) = (a, DigM (Three b c d))
-{-# INLINE viewLDigit #-}
-
-viewRDigit :: Digit n a -> (DigitM n a, Array n a)
-viewRDigit (One a) = (ZeroM, a)
-viewRDigit (Two a b) = (DigM (One a), b)
-viewRDigit (Three a b c) = (DigM (Two a b), c)
-viewRDigit (Four a b c d) = (DigM (Three a b c), d)
-{-# INLINE viewRDigit #-}
 
 viewLA :: Size n -> Deque n a -> ViewL n a
 viewLA !_ Empty = EmptyL
@@ -648,5 +605,45 @@ pattern Deep pr m sf <- (matchDeep -> Deep_ pr m sf)
 
 {-# COMPLETE Empty, Shallow, Deep #-}
 
+data Digit n a
+  = One !(Array n a)
+  | Two !(Array n a) !(Array n a)
+  | Three !(Array n a) !(Array n a) !(Array n a)
+  | Four !(Array n a) !(Array n a) !(Array n a) !(Array n a)
+
 -- Converts a list of sz * n elements to a deque.
---fromListN :: Size sz -> Int -> 
+-- Unlike a queue, we *can't* convert incrementally,
+-- so there's not much use being polymorphic in the state
+-- monad.
+fromListNM :: Size sz -> Int -> State [a] (Deque sz a)
+fromListNM sz n = fromListNS sz (N.toBin45 n)
+
+fromListNS :: Size sz -> N.Bin45 -> State [a] (Deque sz a)
+fromListNS !_ N.End45 = pure Empty
+fromListNS sz N.OneEnd45 = do
+  sa1 <- state (A.arraySplitListN sz)
+  pure $! Shallow sa1
+fromListNS sz N.TwoEnd45 = do
+  sa1 <- state (A.arraySplitListN sz)
+  sa2 <- state (A.arraySplitListN sz)
+  pure $! Deep11 sa1 Empty sa2
+fromListNS sz N.ThreeEnd45 = do
+  sa1 <- state (A.arraySplitListN sz)
+  sa2 <- state (A.arraySplitListN sz)
+  sa3 <- state (A.arraySplitListN sz)
+  pure $! Deep21 sa1 sa2 Empty sa3
+fromListNS sz (N.Four45 n) = do
+  sa1 <- state (A.arraySplitListN sz)
+  sa2 <- state (A.arraySplitListN sz)
+  m <- fromListNS (A.twice sz) n
+  ta1 <- state (A.arraySplitListN sz)
+  ta2 <- state (A.arraySplitListN sz)
+  pure $ Deep22 sa1 sa2 m ta1 ta2
+fromListNS sz (N.Five45 n) = do
+  sa1 <- state (A.arraySplitListN sz)
+  sa2 <- state (A.arraySplitListN sz)
+  sa3 <- state (A.arraySplitListN sz)
+  m <- fromListNS (A.twice sz) n
+  ta1 <- state (A.arraySplitListN sz)
+  ta2 <- state (A.arraySplitListN sz)
+  pure $ Deep32 sa1 sa2 sa3 m ta1 ta2
