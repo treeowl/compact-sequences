@@ -5,7 +5,8 @@
 {-# language PatternSynonyms #-}
 {-# language ViewPatterns #-}
 {-# language FlexibleContexts #-}
-{-# OPTIONS_GHC -Wall #-}
+{- OPTIONS_GHC -Wall #-}
+{- OPTIONS_GHC -ddump-simpl #-}
 
 module Data.CompactSequence.Deque.Internal where
 import qualified Data.CompactSequence.Internal.Array as A
@@ -69,8 +70,6 @@ data Deque n a
   | Deep44 !(Array n a) !(Array n a) !(Array n a) !(Array n a)
            !(Deque ('Twice n) a)
            !(Array n a) !(Array n a) !(Array n a) !(Array n a)
-
---  | Deep !(Digit n a) (Deque ('Twice n) a) !(Digit n a)
   deriving (Functor, Foldable, Traversable)
 
 instance Eq a => Eq (Deque n a) where

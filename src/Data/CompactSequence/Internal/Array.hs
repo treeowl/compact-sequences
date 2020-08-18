@@ -59,14 +59,26 @@ getSingletonA (Array sa)
   = pure a
 
 splitArray :: Size n -> Array (Twice n) a -> (Array n a, Array n a)
-splitArray (Size len) (Array sa1) = (Array sa2, Array sa3)
-  where
-    !sa2 = cloneSmallArray sa1 0 len
-    !sa3 = cloneSmallArray sa1 len len
--- We inline this just to unbox the tuple and SmallArray constructors. We could
--- instead apply manual worker-wrapper around a NOINLINE function returning (#
--- SmallArray# a, SmallArray# a #); would that be better?
+splitArray (Size len) (Array sa)
+  | (# sa1, sa2 #) <- splitSmallArray# len sa
+  = (Array (SmallArray sa1), Array (SmallArray sa2))
 {-# INLINE splitArray #-}
+
+-- Bleh. We use this gunk to prevent coercions from getting
+-- in the way of worker/wrapper, and also to deal with the
+-- nested CPR challenge. GHC, please fix yourself.
+-- We want everything unboxed, but it seems unlikely that we'll
+-- win significantly by inlining two calls to an out-of-line
+-- primop. The giant mutually recursive group of 8 functions
+-- that implement the basic deque operations needs to be as
+-- small as we can possibly make it if there's to be any hope
+-- for the instruction cache.
+splitSmallArray# :: Int -> SmallArray a -> (# SmallArray# a, SmallArray# a #)
+splitSmallArray# len sa1 = (# sa2, sa3 #)
+  where
+    !(SmallArray sa2) = cloneSmallArray sa1 0 len
+    !(SmallArray sa3) = cloneSmallArray sa1 len len
+{-# NOINLINE splitSmallArray# #-}
 
 -- | Append two arrays of the same size. We take the size
 -- of the argument arrays so we can build the result array
