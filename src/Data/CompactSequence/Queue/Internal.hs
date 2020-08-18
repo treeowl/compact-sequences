@@ -246,8 +246,6 @@ shiftA !n (Node10 sa1 m) !sa3 !sa4
           | (sam1, sam2) <- A.splitArray (A.twice n) sam
           -> Node21 sam1 sam2 m' (A.append n sa3 sa4)
 shiftA !n (Node11 sa1 m sa2) !sa3 !sa4
-    -- We force sa3 here to avoid forming a chain of thunks if
-    -- we have a bunch of FD1+RD1 nodes in a row.
   = shrift n sa1 $
       case shiftA (A.twice n) m sa2 (A.append n sa3 sa4) of
         ShiftedA sam1 sam2 m'
@@ -272,8 +270,6 @@ shrift :: Size n -> Array ('Twice n) a -> Queue ('Twice n) a -> ShiftedA n a
 shrift n sa q
   | (sa1, sa2) <- A.splitArray n sa
   = ShiftedA sa1 sa2 q
-{-# INLINE shrift #-}
-
 
 data ShiftedA n a = ShiftedA !(Array n a) !(Array n a) (Queue ('Twice n) a)
 
