@@ -89,11 +89,15 @@ infixl 4 `snoc`, |>
 -- front of a deque.
 pattern (:<) :: a -> Deque a -> Deque a
 pattern x :< xs <- (uncons -> Just (x, xs))
+  where
+    x :< xs = x `cons` xs
 
 -- | A bidirectional pattern synonym for manipulating the
 -- rear of a deque.
 pattern (:>) :: Deque a -> a -> Deque a
 pattern xs :> x <- (unsnoc -> Just (xs, x))
+  where
+    xs :> x = xs `snoc` x
 
 -- | A bidirectional pattern synonym for the empty deque.
 pattern Empty :: Deque a
