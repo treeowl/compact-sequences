@@ -45,7 +45,7 @@ newtype Stack a = Stack {unStack :: S.Stack A.Mul1 a}
 empty :: Stack a
 empty = Stack S.empty
 
-infixr 4 `cons`, :<, <|
+infixr 5 `cons`, :<, <|
 
 -- | Push an element onto the front of a stack.
 cons :: a -> Stack a -> Stack a
