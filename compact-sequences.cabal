@@ -16,7 +16,7 @@ license:             BSD-3-Clause
 license-file:        LICENSE
 author:              David Feuer
 maintainer:          David.Feuer@gmail.com
-copyright: 2020 David Feuer
+copyright:           2020 David Feuer
 category:            Data
 extra-source-files:  CHANGELOG.md
 

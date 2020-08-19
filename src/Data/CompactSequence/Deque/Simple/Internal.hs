@@ -82,7 +82,7 @@ unsnoc (Deque q) = case D.viewRA A.one q of
     | (# a #) <- A.getSingleton# ta
     -> Just (Deque q', a)
 
-infixr 4 :<
+infixr 5 :<, `cons`
 infixl 4 `snoc`, |>
 
 -- | A bidirectional pattern synonym for manipulating the

@@ -64,7 +64,7 @@ uncons (Queue q) = case Q.viewA A.one q of
     | (# a #) <- A.getSingleton# sa
     -> Just (a, Queue q')
 
-infixr 4 :<
+infixr 5 :<
 infixl 4 `snoc`, |>
 
 -- | A unidirectional pattern synonym for viewing the
