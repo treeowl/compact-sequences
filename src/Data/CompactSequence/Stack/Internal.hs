@@ -1,23 +1,24 @@
 {-# language BangPatterns, DeriveTraversable #-}
 {-# language TypeFamilies #-}
-{-# language DataKinds #-}
-{-# language TypeOperators #-}
 {-# language Safe #-}
 {-# language ScopedTypeVariables #-}
 {-# language InstanceSigs #-}
 module Data.CompactSequence.Stack.Internal where
 import qualified Data.Foldable as F
+import Data.CompactSequence.Internal.Size (Size, Twice)
+import qualified Data.CompactSequence.Internal.Size as Sz
 import qualified Data.CompactSequence.Internal.Array.Safe as A
-import Data.CompactSequence.Internal.Array.Safe (Array, Size)
+import Data.CompactSequence.Internal.Array.Safe (Array)
+import Data.CompactSequence.Internal.Size ()
 import Data.Function (on)
 import Data.Traversable (foldMapDefault)
 import Prelude
 
 data Stack n a
   = Empty
-  | One !(Array n a) !(Stack ('A.Twice n) a)
-  | Two !(Array n a) !(Array n a) (Stack ('A.Twice n) a)
-  | Three !(Array n a) !(Array n a) !(Array n a) !(Stack ('A.Twice n) a)
+  | One !(Array n a) !(Stack (Twice n) a)
+  | Two !(Array n a) !(Array n a) (Stack (Twice n) a)
+  | Three !(Array n a) !(Array n a) !(Array n a) !(Stack (Twice n) a)
   deriving (Functor, Traversable)
 {-
 Debit invariant: We allow the Stack in each Two node as many debits as there
@@ -82,7 +83,7 @@ consA :: Size n -> Array n a -> Stack n a -> Stack n a
 consA !_ sa Empty = One sa Empty
 consA !_ sa1 (One sa2 more) = Two sa1 sa2 more
 consA !_ sa1 (Two sa2 sa3 more) = Three sa1 sa2 sa3 more
-consA n sa1 (Three sa2 sa3 sa4 more) = Two sa1 sa2 (consA (A.twice n) (A.append n sa3 sa4) more)
+consA n sa1 (Three sa2 sa3 sa4 more) = Two sa1 sa2 (consA (Sz.twice n) (A.append n sa3 sa4) more)
 
 {-
 Empty is always trivial.
@@ -144,7 +145,7 @@ unconsA !_ Empty = EmptyA
 unconsA !_ (Three sa1 sa2 sa3 more) = ConsA sa1 (Two sa2 sa3 more)
 unconsA !_ (Two sa1 sa2 more) = ConsA sa1 (One sa2 more)
 unconsA n (One sa more) = ConsA sa $
-  case unconsA (A.twice n) more of
+  case unconsA (Sz.twice n) more of
     EmptyA -> Empty
     ConsA sa1 more' -> Two sa2 sa3 more'
       where

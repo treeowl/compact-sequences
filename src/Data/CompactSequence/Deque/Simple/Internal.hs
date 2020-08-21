@@ -3,7 +3,6 @@
 {-# language BangPatterns #-}
 {-# language MagicHash #-}
 {-# language UnboxedTuples #-}
-{-# language DataKinds #-}
 {-# language PatternSynonyms #-}
 {-# language ViewPatterns #-}
 {-# language Trustworthy #-}
@@ -35,6 +34,8 @@ module Data.CompactSequence.Deque.Simple.Internal
 
 import qualified Data.CompactSequence.Deque.Internal as D
 import qualified Data.CompactSequence.Internal.Array as A
+import qualified Data.CompactSequence.Internal.Size as Sz
+import Data.CompactSequence.Internal.Size (Size)
 import qualified Data.CompactSequence.Internal.Numbers as N
 import qualified Data.Foldable as F
 import qualified GHC.Exts as Exts
@@ -43,7 +44,7 @@ import qualified Prelude as P
 import Prelude hiding (take)
 
 -- | A deque.
-newtype Deque a = Deque (D.Deque 'A.Mul1 a)
+newtype Deque a = Deque (D.Deque Sz.Sz1 a)
   deriving (Functor, Traversable, Eq, Ord)
 
 -- | The empty deque.
@@ -52,11 +53,11 @@ empty = Deque D.empty
 
 -- | Enqueue an element at the front of a deque.
 cons :: a -> Deque a -> Deque a
-cons a (Deque q) = Deque $ D.consA A.one (A.singleton a) q
+cons a (Deque q) = Deque $ D.consA Sz.one (A.singleton a) q
 
 -- | Enqueue an element at the rear of a deque.
 snoc :: Deque a -> a -> Deque a
-snoc (Deque q) a = Deque $ D.snocA A.one q (A.singleton a)
+snoc (Deque q) a = Deque $ D.snocA Sz.one q (A.singleton a)
 
 -- | An infix synonym for 'snoc'.
 (|>) :: Deque a -> a -> Deque a
@@ -68,7 +69,7 @@ snoc (Deque q) a = Deque $ D.snocA A.one q (A.singleton a)
 
 -- | Dequeue an element from the front of a deque.
 uncons :: Deque a -> Maybe (a, Deque a)
-uncons (Deque q) = case D.viewLA A.one q of
+uncons (Deque q) = case D.viewLA Sz.one q of
   D.EmptyL -> Nothing
   D.ConsL sa q'
     | (# a #) <- A.getSingleton# sa
@@ -76,7 +77,7 @@ uncons (Deque q) = case D.viewLA A.one q of
 
 -- | Dequeue an element from the rear of a deque.
 unsnoc :: Deque a -> Maybe (Deque a, a)
-unsnoc (Deque q) = case D.viewRA A.one q of
+unsnoc (Deque q) = case D.viewRA Sz.one q of
   D.EmptyR -> Nothing
   D.SnocR q' ta
     | (# a #) <- A.getSingleton# ta
@@ -119,18 +120,18 @@ instance Foldable Deque where
   -- Note: length only does O(log n) *unshared* work, but it does O(n) amortized
   -- work because it has to force the entire spine. We could avoid
   -- this, of course, by storing the size with the dequeue.
-  length (Deque q) = go 0 A.one q
+  length (Deque q) = go 0 Sz.one q
     where
-      go :: Int -> A.Size m -> D.Deque m a -> Int
+      go :: Int -> Size m -> D.Deque m a -> Int
       go !acc !_s D.Empty = acc
-      go !acc !s (D.Shallow _) = acc + A.getSize s
-      go !acc !s (D.Deep pr m sf) = go (acc + ld pr + ld sf) (A.twice s) m
+      go !acc !s (D.Shallow _) = acc + Sz.getSize s
+      go !acc !s (D.Deep pr m sf) = go (acc + ld pr + ld sf) (Sz.twice s) m
         where
           ld = \case
-                  D.One{} -> A.getSize s
-                  D.Two{} -> 2*A.getSize s
-                  D.Three{} -> 3*A.getSize s
-                  D.Four{} -> 4*A.getSize s
+                  D.One{} -> Sz.getSize s
+                  D.Two{} -> 2*Sz.getSize s
+                  D.Three{} -> 3*Sz.getSize s
+                  D.Four{} -> 4*Sz.getSize s
 
 instance Show a => Show (Deque a) where
     showsPrec p xs = showParen (p > 10) $
@@ -161,4 +162,4 @@ fromList = F.foldl' snoc empty
 -- head of the list at the front of the deque.
 fromListN :: Int -> [a] -> Deque a
 fromListN n xs
-  = Deque $ evalState (D.fromListNM A.one n) xs
+  = Deque $ evalState (D.fromListNM Sz.one n) xs

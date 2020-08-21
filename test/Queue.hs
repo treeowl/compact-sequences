@@ -15,6 +15,7 @@ import Data.CompactSequence.Queue.Simple.Internal
 import qualified Data.CompactSequence.Queue.Simple.Internal as Q
 import qualified Data.CompactSequence.Queue.Internal as QI
 import qualified Data.CompactSequence.Internal.Array.Safe as A
+import qualified Data.CompactSequence.Internal.Size as Sz
 import Prelude as P
 
 instance Arbitrary a => Arbitrary (Queue a) where
@@ -22,30 +23,30 @@ instance Arbitrary a => Arbitrary (Queue a) where
   -- of magnitude as the size parameter, with any shape.
   arbitrary = sized $ \sz0 -> do
     sz <- choose (0, sz0)
-    Queue <$> go A.one sz
+    Queue <$> go Sz.one sz
     where
-      go :: A.Size n -> Int -> Gen (QI.Queue n a)
+      go :: Sz.Size n -> Int -> Gen (QI.Queue n a)
       go !_ars n
         | n <= 0 = pure QI.Empty
       go !ars n = do
         frontSize <- choose (1,3 :: Int)
         rearSize <- choose (0,2 :: Int)
-        m <- go (A.twice ars) (n - (frontSize + rearSize) * A.getSize ars)
+        m <- go (Sz.twice ars) (n - (frontSize + rearSize) * Sz.getSize ars)
         QI.Node <$> pr ars frontSize <*> pure m <*> sf ars rearSize
 
       pr !ars = \case
-        1 -> QI.FD1 <$> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-        2 -> QI.FD2 <$> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-                    <*> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-        _ -> QI.FD3 <$> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-                    <*> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-                    <*> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
+        1 -> QI.FD1 <$> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+        2 -> QI.FD2 <$> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+                    <*> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+        _ -> QI.FD3 <$> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+                    <*> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+                    <*> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
 
       sf !ars = \case
         0 -> pure QI.RD0
-        1 -> QI.RD1 <$> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-        _ -> QI.RD2 <$> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-                    <*> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
+        1 -> QI.RD1 <$> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+        _ -> QI.RD2 <$> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+                    <*> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
 
   -- We shrink by trimming the spine. Any other shrinks will
   -- be tricky.

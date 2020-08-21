@@ -3,7 +3,6 @@
 {-# language BangPatterns #-}
 {-# language MagicHash #-}
 {-# language UnboxedTuples #-}
-{-# language DataKinds #-}
 {-# language PatternSynonyms #-}
 {-# language ViewPatterns #-}
 {-# language Trustworthy #-}
@@ -31,6 +30,8 @@ module Data.CompactSequence.Queue.Simple.Internal
   ) where
 
 import qualified Data.CompactSequence.Queue.Internal as Q
+import Data.CompactSequence.Internal.Size (Size, Twice)
+import qualified Data.CompactSequence.Internal.Size as Sz
 import qualified Data.CompactSequence.Internal.Array as A
 import qualified Data.CompactSequence.Internal.Numbers as N
 import qualified Data.Foldable as F
@@ -41,7 +42,7 @@ import qualified Prelude as P
 import Prelude hiding (take)
 
 -- | A queue.
-newtype Queue a = Queue (Q.Queue 'A.Mul1 a)
+newtype Queue a = Queue (Q.Queue Sz.Sz1 a)
   deriving (Functor, Traversable, Eq, Ord)
 
 -- | The empty queue.
@@ -50,7 +51,7 @@ empty = Queue Q.empty
 
 -- | Enqueue an element at the rear of a queue.
 snoc :: Queue a -> a -> Queue a
-snoc (Queue q) a = Queue $ Q.snocA A.one q (A.singleton a)
+snoc (Queue q) a = Queue $ Q.snocA Sz.one q (A.singleton a)
 
 -- | An infix synonym for 'snoc'.
 (|>) :: Queue a -> a -> Queue a
@@ -58,7 +59,7 @@ snoc (Queue q) a = Queue $ Q.snocA A.one q (A.singleton a)
 
 -- | Dequeue an element from the front of a queue.
 uncons :: Queue a -> Maybe (a, Queue a)
-uncons (Queue q) = case Q.viewA A.one q of
+uncons (Queue q) = case Q.viewA Sz.one q of
   Q.EmptyA -> Nothing
   Q.ConsA sa q'
     | (# a #) <- A.getSingleton# sa
@@ -90,20 +91,20 @@ instance Foldable Queue where
   -- Note: length only does O(log n) *unshared* work, but it does O(n) amortized
   -- work because it has to force the entire spine. We could avoid
   -- this, of course, by storing the size with the queue.
-  length (Queue q) = go 0 A.one q
+  length (Queue q) = go 0 Sz.one q
     where
-      go :: Int -> A.Size m -> Q.Queue m a -> Int
+      go :: Int -> Size m -> Q.Queue m a -> Int
       go !acc !_s Q.Empty = acc
-      go !acc !s (Q.Node pr m sf) = go (acc + lpr + lsf) (A.twice s) m
+      go !acc !s (Q.Node pr m sf) = go (acc + lpr + lsf) (Sz.twice s) m
         where
           lpr = case pr of
-                  Q.FD1{} -> A.getSize s
-                  Q.FD2{} -> 2*A.getSize s
-                  Q.FD3{} -> 3*A.getSize s
+                  Q.FD1{} -> Sz.getSize s
+                  Q.FD2{} -> 2*Sz.getSize s
+                  Q.FD3{} -> 3*Sz.getSize s
           lsf = case sf of
                   Q.RD0 -> 0
-                  Q.RD1{} -> A.getSize s
-                  Q.RD2{} -> 2*A.getSize s
+                  Q.RD1{} -> Sz.getSize s
+                  Q.RD2{} -> 2*Sz.getSize s
 
 instance Show a => Show (Queue a) where
     showsPrec p xs = showParen (p > 10) $
@@ -140,23 +141,23 @@ take n s
 --
 -- @compareLength n xs = compare n (length xs)@
 compareLength :: Int -> Queue a -> Ordering
-compareLength n0 (Queue que0) = go A.one n0 que0
+compareLength n0 (Queue que0) = go Sz.one n0 que0
   where
-    go :: A.Size n -> Int -> Q.Queue n a -> Ordering
+    go :: Size n -> Int -> Q.Queue n a -> Ordering
     go !_sz n Q.Empty = compare n 0
     go _sz n _ | n <= 0 = LT
     go sz n (Q.Node pr m sf)
-      = go (A.twice sz) (n - frontLen sz pr - rearLen sz sf) m
+      = go (Sz.twice sz) (n - frontLen sz pr - rearLen sz sf) m
 
-frontLen :: A.Size n -> Q.FD n a -> Int
-frontLen s Q.FD1{} = A.getSize s
-frontLen s Q.FD2{} = 2 * A.getSize s
-frontLen s Q.FD3{} = 3 * A.getSize s
+frontLen :: Size n -> Q.FD n a -> Int
+frontLen s Q.FD1{} = Sz.getSize s
+frontLen s Q.FD2{} = 2 * Sz.getSize s
+frontLen s Q.FD3{} = 3 * Sz.getSize s
 
-rearLen :: A.Size n -> Q.RD n a -> Int
+rearLen :: Size n -> Q.RD n a -> Int
 rearLen s Q.RD0{} = 0
-rearLen s Q.RD1{} = A.getSize s
-rearLen s Q.RD2{} = 2 * A.getSize s
+rearLen s Q.RD1{} = Sz.getSize s
+rearLen s Q.RD2{} = 2 * Sz.getSize s
 
 -- | \( O(n \log n) \). Convert a list to a 'Queue', with the head of the
 -- list at the front of the queue.
@@ -167,7 +168,7 @@ fromList = F.foldl' snoc empty
 -- head of the list at the front of the queue.
 fromListN :: Int -> [a] -> Queue a
 fromListN n xs
-  = Queue $ evalState (fromListQN A.one (N.toBin23 n)) xs
+  = Queue $ evalState (fromListQN Sz.one (N.toBin23 n)) xs
 
 -- | \( O(n) \). Convert a list of the given size to a 'Queue', with the
 -- head of the list at the front of the queue. Unlike 'fromListN',
@@ -177,7 +178,7 @@ fromListN n xs
 -- immediately.
 fromListNIncremental :: Int -> [a] -> Queue a
 fromListNIncremental n xs
-  = Queue $ LS.evalState (fromListQN A.one (N.toBin23 n)) xs
+  = Queue $ LS.evalState (fromListQN Sz.one (N.toBin23 n)) xs
 
 -- We use a similar approach to the one we use for stacks.  Every node of the
 -- resulting queue will be safe, except possibly the last one. This should make
@@ -188,12 +189,12 @@ fromListNIncremental n xs
 -- Without these SPECIALIZE pragmas, this doesn't get specialized
 -- for some reason. Bleh!
 {-# SPECIALIZE
-  fromListQN :: A.Size n -> N.Bin23 -> State [a] (Q.Queue n a)
+  fromListQN :: Size n -> N.Bin23 -> State [a] (Q.Queue n a)
  #-}
 {-# SPECIALIZE
-  fromListQN :: A.Size n -> N.Bin23 -> LS.State [a] (Q.Queue n a)
+  fromListQN :: Size n -> N.Bin23 -> LS.State [a] (Q.Queue n a)
  #-}
-fromListQN :: MonadState [a] m => A.Size n -> N.Bin23 -> m (Q.Queue n a)
+fromListQN :: MonadState [a] m => Size n -> N.Bin23 -> m (Q.Queue n a)
 fromListQN !_ N.End23 = do
   remains <- get
   if null remains
@@ -208,11 +209,11 @@ fromListQN !sz N.OneEnd23 = do
 fromListQN !sz (N.Two23 mn) = do
   sa1 <- state (A.arraySplitListN sz)
   sa2 <- state (A.arraySplitListN sz)
-  m <- fromListQN (A.twice sz) mn
+  m <- fromListQN (Sz.twice sz) mn
   pure $! Q.Node (Q.FD2 sa1 sa2) m Q.RD0
 fromListQN !sz (N.Three23 mn) = do
   sa1 <- state (A.arraySplitListN sz)
   sa2 <- state (A.arraySplitListN sz)
   sa3 <- state (A.arraySplitListN sz)
-  m <- fromListQN (A.twice sz) mn
+  m <- fromListQN (Sz.twice sz) mn
   pure $! Q.Node (Q.FD3 sa1 sa2 sa3) m Q.RD0

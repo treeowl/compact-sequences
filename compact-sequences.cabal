@@ -35,6 +35,7 @@ library
                  , Data.CompactSequence.Deque.Simple.Internal
                  , Data.CompactSequence.Deque.Internal
                  , Data.CompactSequence.Internal.Array
+                 , Data.CompactSequence.Internal.Size
                  , Data.CompactSequence.Internal.Numbers
                  , Data.CompactSequence.Internal.Array.Safe
   -- other-modules:

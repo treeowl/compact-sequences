@@ -1,4 +1,3 @@
-{-# language DataKinds #-}
 {-# language BangPatterns #-}
 {-# language PatternSynonyms #-}
 {-# language ViewPatterns #-}
@@ -28,6 +27,8 @@ module Data.CompactSequence.Stack.Simple.Internal
 
 import qualified Data.CompactSequence.Stack.Internal as S
 import Data.CompactSequence.Stack.Internal (consA, unconsA, ViewA (..))
+import Data.CompactSequence.Internal.Size (Size, Twice)
+import qualified Data.CompactSequence.Internal.Size as Sz
 import qualified Data.CompactSequence.Internal.Array.Safe as A
 import qualified Data.CompactSequence.Internal.Numbers as N
 import qualified Data.Foldable as F
@@ -36,7 +37,7 @@ import qualified Prelude as P
 import Prelude hiding (take)
 
 -- | A stack.
-newtype Stack a = Stack {unStack :: S.Stack A.Mul1 a}
+newtype Stack a = Stack {unStack :: S.Stack Sz.Sz1 a}
   deriving (Functor, Traversable, Eq, Ord)
   -- TODO: Write a custom Traversable instance to avoid
   -- an extra fmap at the top.
@@ -49,12 +50,12 @@ infixr 5 `cons`, :<, <|
 
 -- | Push an element onto the front of a stack.
 cons :: a -> Stack a -> Stack a
-cons a (Stack s) = Stack $ consA A.one (A.singleton a) s
+cons a (Stack s) = Stack $ consA Sz.one (A.singleton a) s
 
 -- | Pop an element off the front of a stack.
 uncons :: Stack a -> Maybe (a, Stack a)
 uncons (Stack stk) = do
-  ConsA sa stk' <- pure $ unconsA A.one stk
+  ConsA sa stk' <- pure $ unconsA Sz.one stk
   hd <- A.getSingletonA sa
   Just (hd, Stack stk')
 
@@ -98,14 +99,14 @@ instance Foldable Stack where
 --
 -- @compareLength n xs = compare n (length xs)@
 compareLength :: Int -> Stack a -> Ordering
-compareLength n0 (Stack stk0) = go A.one n0 stk0
+compareLength n0 (Stack stk0) = go Sz.one n0 stk0
   where
-    go :: A.Size n -> Int -> S.Stack n a -> Ordering
+    go :: Size n -> Int -> S.Stack n a -> Ordering
     go !_sz n S.Empty = compare n 0
     go _sz n _ | n <= 0 = LT
-    go sz n (S.One _ more) = go (A.twice sz) (n - A.getSize sz) more
-    go sz n (S.Two _ _ more) = go (A.twice sz) (n - 2*A.getSize sz) more
-    go sz n (S.Three _ _ _ more) = go (A.twice sz) (n - 3*A.getSize sz) more
+    go sz n (S.One _ more) = go (Sz.twice sz) (n - Sz.getSize sz) more
+    go sz n (S.Two _ _ more) = go (Sz.twice sz) (n - 2*Sz.getSize sz) more
+    go sz n (S.Three _ _ _ more) = go (Sz.twice sz) (n - 3*Sz.getSize sz) more
 
 -- | Take up to the given number of elements from the front
 -- of a stack to form a new stack. \( O(\min (k, n)) \), where
@@ -144,23 +145,23 @@ fromList = foldr cons empty
 fromListN :: Int -> [a] -> Stack a
 fromListN n !_
   | n < 0 = error "Data.CompactSequence.Stack.fromListN: Negative argument."
-fromListN s xs = Stack $ fromListSN A.one (N.toDyadic s) xs
+fromListN s xs = Stack $ fromListSN Sz.one (N.toDyadic s) xs
 
 -- We convert the size to a dyadic representation
 -- (1-2 binary) and use that as the shape of the stack.
-fromListSN :: A.Size n -> N.Dyadic -> [a] -> S.Stack n a
+fromListSN :: Size n -> N.Dyadic -> [a] -> S.Stack n a
 fromListSN !_ N.DEnd xs
   | F.null xs = S.Empty
   | otherwise = error "Data.CompactSequence.Stack.fromListN: List too long."
 fromListSN s (N.DOne n') xs
   | (ar, xs') <- A.arraySplitListN s xs
-  = S.One ar (fromListSN (A.twice s) n' xs')
+  = S.One ar (fromListSN (Sz.twice s) n' xs')
 fromListSN s (N.DTwo n') xs
   | (ar1, xs') <- A.arraySplitListN s xs
   , (ar2, xs'') <- A.arraySplitListN s xs'
     -- We build eagerly to dispose of the list as soon as
     -- possible.
-  = S.Two ar1 ar2 $! fromListSN (A.twice s) n' xs''
+  = S.Two ar1 ar2 $! fromListSN (Sz.twice s) n' xs''
 
 instance Show a => Show (Stack a) where
     showsPrec p xs = showParen (p > 10) $
