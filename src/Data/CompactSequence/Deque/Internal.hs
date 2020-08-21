@@ -1,7 +1,6 @@
 {-# language CPP #-}
 {-# language BangPatterns, ScopedTypeVariables, UnboxedTuples, MagicHash #-}
 {-# language DeriveTraversable, StandaloneDeriving #-}
-{-# language DataKinds #-}
 {-# language PatternSynonyms #-}
 {-# language ViewPatterns #-}
 {-# language FlexibleContexts #-}
@@ -10,7 +9,9 @@
 
 module Data.CompactSequence.Deque.Internal where
 import qualified Data.CompactSequence.Internal.Array as A
-import Data.CompactSequence.Internal.Array (Array, Size (..), Mult (..))
+import Data.CompactSequence.Internal.Array (Array)
+import qualified Data.CompactSequence.Internal.Size as Sz
+import Data.CompactSequence.Internal.Size (Size, Twice)
 import qualified Data.CompactSequence.Internal.Numbers as N
 import qualified Data.Foldable as F
 import Control.Monad.Trans.State.Strict
@@ -20,55 +21,55 @@ data Deque n a
   = Empty
   | Shallow !(Array n a)
   | Deep11 !(Array n a)
-           !(Deque ('Twice n) a)
+           !(Deque (Twice n) a)
            !(Array n a)
   | Deep12 !(Array n a)
-           !(Deque ('Twice n) a)
+           !(Deque (Twice n) a)
            !(Array n a) !(Array n a)
   | Deep13 !(Array n a)
-           !(Deque ('Twice n) a)
+           !(Deque (Twice n) a)
            !(Array n a) !(Array n a) !(Array n a)
   | Deep14 !(Array n a)
-           !(Deque ('Twice n) a)
+           !(Deque (Twice n) a)
            !(Array n a) !(Array n a) !(Array n a) !(Array n a)
 
   | Deep21 !(Array n a) !(Array n a) 
-           !(Deque ('Twice n) a)
+           !(Deque (Twice n) a)
            !(Array n a)
   | Deep22 !(Array n a) !(Array n a) 
-           (Deque ('Twice n) a)
+           (Deque (Twice n) a)
            !(Array n a) !(Array n a) 
   | Deep23 !(Array n a) !(Array n a) 
-           (Deque ('Twice n) a)
+           (Deque (Twice n) a)
            !(Array n a) !(Array n a) !(Array n a)
   | Deep24 !(Array n a) !(Array n a) 
-           !(Deque ('Twice n) a)
+           !(Deque (Twice n) a)
            !(Array n a) !(Array n a) !(Array n a) !(Array n a)
 
   | Deep31 !(Array n a) !(Array n a) !(Array n a)
-           !(Deque ('Twice n) a)
+           !(Deque (Twice n) a)
            !(Array n a)
   | Deep32 !(Array n a) !(Array n a) !(Array n a)
-           (Deque ('Twice n) a)
+           (Deque (Twice n) a)
            !(Array n a) !(Array n a) 
   | Deep33 !(Array n a) !(Array n a) !(Array n a)
-           (Deque ('Twice n) a)
+           (Deque (Twice n) a)
            !(Array n a) !(Array n a) !(Array n a)
   | Deep34 !(Array n a) !(Array n a) !(Array n a)
-           !(Deque ('Twice n) a)
+           !(Deque (Twice n) a)
            !(Array n a) !(Array n a) !(Array n a) !(Array n a)
 
   | Deep41 !(Array n a) !(Array n a) !(Array n a) !(Array n a)
-           !(Deque ('Twice n) a)
+           !(Deque (Twice n) a)
            !(Array n a)
   | Deep42 !(Array n a) !(Array n a) !(Array n a) !(Array n a)
-           !(Deque ('Twice n) a)
+           !(Deque (Twice n) a)
            !(Array n a) !(Array n a) 
   | Deep43 !(Array n a) !(Array n a) !(Array n a) !(Array n a)
-           !(Deque ('Twice n) a)
+           !(Deque (Twice n) a)
            !(Array n a) !(Array n a) !(Array n a)
   | Deep44 !(Array n a) !(Array n a) !(Array n a) !(Array n a)
-           !(Deque ('Twice n) a)
+           !(Deque (Twice n) a)
            !(Array n a) !(Array n a) !(Array n a) !(Array n a)
   deriving (Functor, Foldable, Traversable)
 
@@ -116,11 +117,11 @@ consA !n !x (Deep41 sa1 sa2 sa3 sa4 m ta)
   | ShiftedR m' me1 me2 <- shiftRA n sa3 sa4 m
   = Deep33 x sa1 sa2 m' me1 me2 ta
 consA !n !x (Deep42 sa1 sa2 sa3 sa4 m ta1 ta2)
-  = Deep32 x sa1 sa2 (consA (A.twice n) (A.append n sa3 sa4) m) ta1 ta2
+  = Deep32 x sa1 sa2 (consA (Sz.twice n) (A.append n sa3 sa4) m) ta1 ta2
 consA !n !x (Deep43 sa1 sa2 sa3 sa4 m ta1 ta2 ta3)
-  = Deep33 x sa1 sa2 (consA (A.twice n) (A.append n sa3 sa4) m) ta1 ta2 ta3
+  = Deep33 x sa1 sa2 (consA (Sz.twice n) (A.append n sa3 sa4) m) ta1 ta2 ta3
 consA !n !x (Deep44 sa1 sa2 sa3 sa4 m ta1 ta2 ta3 ta4)
-  = Deep32 x sa1 sa2 (consSnocA (A.twice n) (A.append n sa3 sa4) m (A.append n ta1 ta2)) ta3 ta4
+  = Deep32 x sa1 sa2 (consSnocA (Sz.twice n) (A.append n sa3 sa4) m (A.append n ta1 ta2)) ta3 ta4
 
 snocA :: Size n -> Deque n a -> Array n a -> Deque n a
 snocA !_ Empty x = Shallow x
@@ -157,12 +158,12 @@ snocA !n (Deep14 sa1 m ta1 ta2 ta3 ta4) x
   | ShiftedL mb1 mb2 m' <- shiftLA n m ta1 ta2
   = Deep33 sa1 mb1 mb2 m' ta3 ta4 x
 snocA !n (Deep24 sa1 sa2 m ta1 ta2 ta3 ta4) x
-  = Deep23 sa1 sa2 (snocA (A.twice n) m (A.append n ta1 ta2)) ta3 ta4 x
+  = Deep23 sa1 sa2 (snocA (Sz.twice n) m (A.append n ta1 ta2)) ta3 ta4 x
 snocA !n (Deep34 sa1 sa2 sa3 m ta1 ta2 ta3 ta4) x
-  = Deep33 sa1 sa2 sa3 (snocA (A.twice n) m (A.append n ta1 ta2)) ta3 ta4 x
+  = Deep33 sa1 sa2 sa3 (snocA (Sz.twice n) m (A.append n ta1 ta2)) ta3 ta4 x
 snocA !n (Deep44 sa1 sa2 sa3 sa4 m ta1 ta2 ta3 ta4) x
   = Deep23 sa1 sa2
-           (consSnocA (A.twice n)
+           (consSnocA (Sz.twice n)
                       (A.append n sa3 sa4)
                       m
                       (A.append n ta1 ta2))
@@ -208,7 +209,7 @@ viewLA !_ (Deep24 sa1 sa2 m ta1 ta2 ta3 ta4)
   = ConsL sa1 (Deep14 sa2 m ta1 ta2 ta3 ta4)
 
 viewLA !n (Deep11 sa1 m ta1)
-  = ConsL sa1 $ case unconsUnsnocA (A.twice n) m of
+  = ConsL sa1 $ case unconsUnsnocA (Sz.twice n) m of
       EmptyUCUS -> Shallow ta1
       OneUCUS mb
         | (mb1, mb2) <- A.splitArray n mb
@@ -218,13 +219,13 @@ viewLA !n (Deep11 sa1 m ta1)
         , (me1, me2) <- A.splitArray n me
         -> Deep23 mb1 mb2 m' me1 me2 ta1
 viewLA !n (Deep12 sa1 m ta1 ta2)
-  = ConsL sa1 $ case viewLA (A.twice n) m of
+  = ConsL sa1 $ case viewLA (Sz.twice n) m of
       EmptyL -> Deep11 ta1 Empty ta2
       ConsL mb m'
         | (mb1, mb2) <- A.splitArray n mb
         -> Deep22 mb1 mb2 m' ta1 ta2
 viewLA !n (Deep13 sa1 m ta1 ta2 ta3)
-  = ConsL sa1 $ case viewLA (A.twice n) m of
+  = ConsL sa1 $ case viewLA (Sz.twice n) m of
       EmptyL -> Deep21 ta1 ta2 Empty ta3
       ConsL mb m'
         | (mb1, mb2) <- A.splitArray n mb
@@ -265,7 +266,7 @@ viewRA !_ (Deep42 sa1 sa2 sa3 sa4 m ta1 ta2)
   = SnocR (Deep41 sa1 sa2 sa3 sa4 m ta1) ta2
 
 viewRA !n (Deep11 sa1 m ta1)
-  = flip SnocR ta1 $ case unconsUnsnocA (A.twice n) m of
+  = flip SnocR ta1 $ case unconsUnsnocA (Sz.twice n) m of
       EmptyUCUS -> Shallow sa1
       OneUCUS mb
         | (m1, m2) <- A.splitArray n mb
@@ -275,13 +276,13 @@ viewRA !n (Deep11 sa1 m ta1)
         , (me1, me2) <- A.splitArray n me
         -> Deep32 sa1 mb1 mb2 m' me1 me2
 viewRA !n (Deep21 sa1 sa2 m ta1)
-  = flip SnocR ta1 $ case viewRA (A.twice n) m of
+  = flip SnocR ta1 $ case viewRA (Sz.twice n) m of
       EmptyR -> Deep11 sa1 Empty sa2
       SnocR m' me
         | (me1, me2) <- A.splitArray n me
         -> Deep22 sa1 sa2 m' me1 me2
 viewRA !n (Deep31 sa1 sa2 sa3 m ta1)
-  = flip SnocR ta1 $ case viewRA (A.twice n) m of
+  = flip SnocR ta1 $ case viewRA (Sz.twice n) m of
       EmptyR -> Deep21 sa1 sa2 Empty sa3
       SnocR m' me
         | (me1, me2) <- A.splitArray n me
@@ -290,31 +291,31 @@ viewRA !n (Deep41 sa1 sa2 sa3 sa4 m ta1)
   = flip SnocR ta1 $ case shiftRA n sa3 sa4 m of
       ShiftedR m' me1 me2 -> Deep22 sa1 sa2 m' me1 me2
 
-data ShiftedL n a = ShiftedL !(Array n a) !(Array n a) (Deque ('Twice n) a)
-data ShiftedR n a = ShiftedR (Deque ('Twice n) a) !(Array n a) !(Array n a)
+data ShiftedL n a = ShiftedL !(Array n a) !(Array n a) (Deque (Twice n) a)
+data ShiftedR n a = ShiftedR (Deque (Twice n) a) !(Array n a) !(Array n a)
 
-shiftLA :: Size n -> Deque ('Twice n) a -> Array n a -> Array n a -> ShiftedL n a
+shiftLA :: Size n -> Deque (Twice n) a -> Array n a -> Array n a -> ShiftedL n a
 shiftLA !_ Empty !sa1 !sa2 = ShiftedL sa1 sa2 Empty
 shiftLA !n (Shallow sa) !ta1 !ta2
   = shriftL n sa (Shallow (A.append n ta1 ta2))
 
 shiftLA !n (Deep11 sa1 m ta1) !x !y
-  = shriftL n sa1 $ case viewLA (A.twice (A.twice n)) m of
+  = shriftL n sa1 $ case viewLA (Sz.twice (Sz.twice n)) m of
       EmptyL -> Deep11 ta1 Empty (A.append n x y)
       ConsL mb m'
-        | (mb1, mb2) <- A.splitArray (A.twice n) mb
+        | (mb1, mb2) <- A.splitArray (Sz.twice n) mb
         -> Deep22 mb1 mb2 m' ta1 (A.append n x y)
 shiftLA !n (Deep12 sa1 m ta1 ta2) !x !y
-  = shriftL n sa1 $ case viewLA (A.twice (A.twice n)) m of
+  = shriftL n sa1 $ case viewLA (Sz.twice (Sz.twice n)) m of
       EmptyL -> Deep21 ta1 ta2 Empty (A.append n x y)
       ConsL mb m'
-        | (mb1, mb2) <- A.splitArray (A.twice n) mb
+        | (mb1, mb2) <- A.splitArray (Sz.twice n) mb
         -> Deep23 mb1 mb2 m' ta1 ta2 (A.append n x y)
 shiftLA !n (Deep13 sa1 m ta1 ta2 ta3) !x !y
-  = shriftL n sa1 $ case shiftLA (A.twice n) m ta1 ta2 of
+  = shriftL n sa1 $ case shiftLA (Sz.twice n) m ta1 ta2 of
       ShiftedL mb1 mb2 m' -> Deep22 mb1 mb2 m' ta3 (A.append n x y)
 shiftLA !n (Deep14 sa1 m ta1 ta2 ta3 ta4) !x !y
-  = shriftL n sa1 $ case shiftLA (A.twice n) m ta1 ta2 of
+  = shriftL n sa1 $ case shiftLA (Sz.twice n) m ta1 ta2 of
       ShiftedL mb1 mb2 m' -> Deep23 mb1 mb2 m' ta3 ta4 (A.append n x y)
 
 shiftLA !n (Deep21 sa1 sa2 m ta1) !x !y
@@ -324,7 +325,7 @@ shiftLA !n (Deep22 sa1 sa2 m ta1 ta2) !x !y
 shiftLA !n (Deep23 sa1 sa2 m ta1 ta2 ta3) !x !y
   = shriftL n sa1 $ Deep14 sa2 m ta1 ta2 ta3 (A.append n x y)
 shiftLA !n (Deep24 sa1 sa2 m ta1 ta2 ta3 ta4) !x !y
-  = shriftL n sa1 $ case shiftLA (A.twice n) m ta1 ta2 of
+  = shriftL n sa1 $ case shiftLA (Sz.twice n) m ta1 ta2 of
       ShiftedL mb1 mb2 m' -> Deep33 sa2 mb1 mb2 m' ta3 ta4 (A.append n x y)
 
 shiftLA !n (Deep31 sa1 sa2 sa3 m ta1) !x !y
@@ -336,7 +337,7 @@ shiftLA !n (Deep33 sa1 sa2 sa3 m ta1 ta2 ta3) !x !y
 shiftLA !n (Deep34 sa1 sa2 sa3 m ta1 ta2 ta3 ta4) !x !y
   = shriftL n sa1 $
       Deep23 sa2 sa3
-             (snocA (A.twice (A.twice n)) m (A.append (A.twice n) ta1 ta2))
+             (snocA (Sz.twice (Sz.twice n)) m (A.append (Sz.twice n) ta1 ta2))
              ta3 ta4 (A.append n x y)
 
 shiftLA !n (Deep41 sa1 sa2 sa3 sa4 m ta1) !x !y
@@ -348,23 +349,23 @@ shiftLA !n (Deep43 sa1 sa2 sa3 sa4 m ta1 ta2 ta3) !x !y
 shiftLA !n (Deep44 sa1 sa2 sa3 sa4 m ta1 ta2 ta3 ta4) !x !y
   = shriftL n sa1 $
       Deep33 sa2 sa3 sa4
-             (snocA (A.twice (A.twice n)) m (A.append (A.twice n) ta1 ta2))
+             (snocA (Sz.twice (Sz.twice n)) m (A.append (Sz.twice n) ta1 ta2))
              ta3 ta4 (A.append n x y)
 
-shriftL :: Size n -> Array ('A.Twice n) a -> Deque ('A.Twice n) a -> ShiftedL n a
+shriftL :: Size n -> Array (Twice n) a -> Deque (Twice n) a -> ShiftedL n a
 shriftL !n !sa d
   | (sa1, sa2) <- A.splitArray n sa
   = ShiftedL sa1 sa2 d
 
-shiftRA :: Size n -> Array n a -> Array n a -> Deque ('Twice n) a -> ShiftedR n a
+shiftRA :: Size n -> Array n a -> Array n a -> Deque (Twice n) a -> ShiftedR n a
 shiftRA !_ !sa1 !sa2 Empty = ShiftedR Empty sa1 sa2
 shiftRA n sa1 sa2 (Shallow ta)
   = shriftR n ta (Shallow (A.append n sa1 sa2))
 shiftRA n x y (Deep11 sa1 m ta1)
-  = shriftR n ta1 $ case viewRA (A.twice (A.twice n)) m of
+  = shriftR n ta1 $ case viewRA (Sz.twice (Sz.twice n)) m of
       EmptyR -> Deep11 (A.append n x y) Empty sa1
       SnocR m' me
-        | (me1, me2) <- A.splitArray (A.twice n) me
+        | (me1, me2) <- A.splitArray (Sz.twice n) me
         -> Deep22 (A.append n x y) sa1 m' me1 me2
 shiftRA n x y (Deep12 sa1 m ta1 ta2)
   = shriftR n ta2 $ Deep21 (A.append n x y) sa1 m ta1
@@ -374,10 +375,10 @@ shiftRA n x y (Deep14 sa1 m ta1 ta2 ta3 ta4)
   = shriftR n ta4 $ Deep23 (A.append n x y) sa1 m ta1 ta2 ta3
 
 shiftRA n x y (Deep21 sa1 sa2 m ta1)
-  = shriftR n ta1 $ case viewRA (A.twice (A.twice n)) m of
+  = shriftR n ta1 $ case viewRA (Sz.twice (Sz.twice n)) m of
       EmptyR -> Deep21 (A.append n x y) sa1 Empty sa2
       SnocR m' me
-        | (me1, me2) <- A.splitArray (A.twice n) me
+        | (me1, me2) <- A.splitArray (Sz.twice n) me
         -> Deep32 (A.append n x y) sa1 sa2 m' me1 me2
 shiftRA n x y (Deep22 sa1 sa2 m ta1 ta2)
   = shriftR n ta2 $
@@ -390,7 +391,7 @@ shiftRA n x y (Deep24 sa1 sa2 m ta1 ta2 ta3 ta4)
       Deep33 (A.append n x y) sa1 sa2 m ta1 ta2 ta3
 
 shiftRA n x y (Deep31 sa1 sa2 sa3 m ta1)
-  = shriftR n ta1 $ case shiftRA (A.twice n) sa2 sa3 m of
+  = shriftR n ta1 $ case shiftRA (Sz.twice n) sa2 sa3 m of
       ShiftedR m' me1 me2 -> Deep22 (A.append n x y) sa1 m' me1 me2
 shiftRA n x y (Deep32 sa1 sa2 sa3 m ta1 ta2)
   = shriftR n ta2 $ Deep41 (A.append n x y) sa1 sa2 sa3 m ta1
@@ -400,23 +401,23 @@ shiftRA n x y (Deep34 sa1 sa2 sa3 m ta1 ta2 ta3 ta4)
   = shriftR n ta4 $ Deep43 (A.append n x y) sa1 sa2 sa3 m ta1 ta2 ta3
 
 shiftRA n x y (Deep41 sa1 sa2 sa3 sa4 m ta1)
-  = shriftR n ta1 $ case shiftRA (A.twice n) sa3 sa4 m of
+  = shriftR n ta1 $ case shiftRA (Sz.twice n) sa3 sa4 m of
       ShiftedR m' me1 me2 -> Deep32 (A.append n x y) sa1 sa2 m' me1 me2
 shiftRA n x y (Deep42 sa1 sa2 sa3 sa4 m ta1 ta2)
-  = shriftR n ta2 $ case shiftRA (A.twice n) sa3 sa4 m of
+  = shriftR n ta2 $ case shiftRA (Sz.twice n) sa3 sa4 m of
       ShiftedR m' me1 me2 -> Deep33 (A.append n x y) sa1 sa2 m' me1 me2 ta1
 shiftRA n x y (Deep43 sa1 sa2 sa3 sa4 m ta1 ta2 ta3)
   = shriftR n ta3 $
       Deep32 (A.append n x y) sa1 sa2
-           (consA (A.twice (A.twice n)) (A.append (A.twice n) sa3 sa4) m)
+           (consA (Sz.twice (Sz.twice n)) (A.append (Sz.twice n) sa3 sa4) m)
            ta1 ta2
 shiftRA n x y (Deep44 sa1 sa2 sa3 sa4 m ta1 ta2 ta3 ta4)
   = shriftR n ta4 $
       Deep33 (A.append n x y) sa1 sa2
-           (consA (A.twice (A.twice n)) (A.append (A.twice n) sa3 sa4) m)
+           (consA (Sz.twice (Sz.twice n)) (A.append (Sz.twice n) sa3 sa4) m)
            ta1 ta2 ta3
 
-shriftR :: Size n -> Array ('A.Twice n) a -> Deque ('A.Twice n) a -> ShiftedR n a
+shriftR :: Size n -> Array (Twice n) a -> Deque (Twice n) a -> ShiftedR n a
 shriftR !n !sa d
   | (sa1, sa2) <- A.splitArray n sa
   = ShiftedR d sa1 sa2
@@ -431,7 +432,7 @@ consSnocA !_ !x (Deep12 sa1 m ta1 ta2) !y
 consSnocA !_ !x (Deep13 sa1 m ta1 ta2 ta3) !y
   = Deep24 x sa1 m ta1 ta2 ta3 y
 consSnocA !n !x (Deep14 sa1 m ta1 ta2 ta3 ta4) !y
-  = Deep23 x sa1 (snocA (A.twice n) m (A.append n ta1 ta2)) ta3 ta4 y
+  = Deep23 x sa1 (snocA (Sz.twice n) m (A.append n ta1 ta2)) ta3 ta4 y
 
 consSnocA !_ !x (Deep21 sa1 sa2 m ta1) !y
   = Deep32 x sa1 sa2 m ta1 y
@@ -440,7 +441,7 @@ consSnocA !_ !x (Deep22 sa1 sa2 m ta1 ta2) !y
 consSnocA !_ !x (Deep23 sa1 sa2 m ta1 ta2 ta3) !y
   = Deep34 x sa1 sa2 m ta1 ta2 ta3 y
 consSnocA !n !x (Deep24 sa1 sa2 m ta1 ta2 ta3 ta4) !y
-  = Deep33 x sa1 sa2 (snocA (A.twice n) m (A.append n ta1 ta2)) ta3 ta4 y
+  = Deep33 x sa1 sa2 (snocA (Sz.twice n) m (A.append n ta1 ta2)) ta3 ta4 y
 
 consSnocA !_ !x (Deep31 sa1 sa2 sa3 m ta1) !y
   = Deep42 x sa1 sa2 sa3 m ta1 y
@@ -450,17 +451,17 @@ consSnocA !_ !x (Deep33 sa1 sa2 sa3 m ta1 ta2 ta3) !y
   = Deep44 x sa1 sa2 sa3 m ta1 ta2 ta3 y
 consSnocA !n !x (Deep34 sa1 sa2 sa3 m ta1 ta2 ta3 ta4) !y
   = Deep23 x sa1
-           (consSnocA (A.twice n) (A.append n sa2 sa3) m (A.append n ta1 ta2))
+           (consSnocA (Sz.twice n) (A.append n sa2 sa3) m (A.append n ta1 ta2))
            ta3 ta4 y
 
 consSnocA n !x (Deep41 sa1 sa2 sa3 sa4 m ta1) !y
-  = Deep32 x sa1 sa2 (consA (A.twice n) (A.append n sa3 sa4) m) ta1 y
+  = Deep32 x sa1 sa2 (consA (Sz.twice n) (A.append n sa3 sa4) m) ta1 y
 consSnocA n !x (Deep42 sa1 sa2 sa3 sa4 m ta1 ta2) !y
-  = Deep33 x sa1 sa2 (consA (A.twice n) (A.append n sa3 sa4) m) ta1 ta2 y
+  = Deep33 x sa1 sa2 (consA (Sz.twice n) (A.append n sa3 sa4) m) ta1 ta2 y
 consSnocA n !x (Deep43 sa1 sa2 sa3 sa4 m ta1 ta2 ta3) !y
-  = Deep32 x sa1 sa2 (consSnocA (A.twice n) (A.append n sa3 sa4) m (A.append n ta1 ta2)) ta3 y
+  = Deep32 x sa1 sa2 (consSnocA (Sz.twice n) (A.append n sa3 sa4) m (A.append n ta1 ta2)) ta3 y
 consSnocA n !x (Deep44 sa1 sa2 sa3 sa4 m ta1 ta2 ta3 ta4) !y
-  = Deep33 x sa1 sa2 (consSnocA (A.twice n) (A.append n sa3 sa4) m (A.append n ta1 ta2)) ta3 ta4 y
+  = Deep33 x sa1 sa2 (consSnocA (Sz.twice n) (A.append n sa3 sa4) m (A.append n ta1 ta2)) ta3 ta4 y
 
 data UCUS n a
   = EmptyUCUS
@@ -472,7 +473,7 @@ unconsUnsnocA !_ Empty = EmptyUCUS
 unconsUnsnocA !_ (Shallow sa) = OneUCUS sa
 unconsUnsnocA n (Deep11 sa1 m ta1)
   = flip (UCUS sa1) ta1 $
-      case unconsUnsnocA (A.twice n) m of
+      case unconsUnsnocA (Sz.twice n) m of
         EmptyUCUS -> Empty
         OneUCUS mm
           | (m1, m2) <- A.splitArray n mm
@@ -483,7 +484,7 @@ unconsUnsnocA n (Deep11 sa1 m ta1)
           -> Deep22 mb1 mb2 m' me1 me2
 unconsUnsnocA n (Deep12 sa1 m ta1 ta2)
   = flip (UCUS sa1) ta2 $
-      case unconsUnsnocA (A.twice n) m of
+      case unconsUnsnocA (Sz.twice n) m of
         EmptyUCUS -> Shallow ta1
         OneUCUS mm
           | (m1, m2) <- A.splitArray n mm
@@ -494,14 +495,14 @@ unconsUnsnocA n (Deep12 sa1 m ta1 ta2)
           -> Deep23 mb1 mb2 m' me1 me2 ta1
 unconsUnsnocA n (Deep13 sa1 m ta1 ta2 ta3)
   = flip (UCUS sa1) ta3 $
-      case viewLA (A.twice n) m of
+      case viewLA (Sz.twice n) m of
         EmptyL -> Deep11 ta1 Empty ta2
         ConsL mb m'
           | (mb1, mb2) <- A.splitArray n mb
           -> Deep22 mb1 mb2 m' ta1 ta2
 unconsUnsnocA n (Deep14 sa1 m ta1 ta2 ta3 ta4)
   = flip (UCUS sa1) ta4 $
-      case viewLA (A.twice n) m of
+      case viewLA (Sz.twice n) m of
         EmptyL -> Deep12 ta1 Empty ta2 ta3
         ConsL mb m'
           | (mb1, mb2) <- A.splitArray n mb
@@ -509,7 +510,7 @@ unconsUnsnocA n (Deep14 sa1 m ta1 ta2 ta3 ta4)
 
 unconsUnsnocA !n (Deep21 sa1 sa2 m ta1)
   = flip (UCUS sa1) ta1 $
-      case unconsUnsnocA (A.twice n) m of
+      case unconsUnsnocA (Sz.twice n) m of
         EmptyUCUS -> Shallow sa2
         OneUCUS mm
           | (m1, m2) <- A.splitArray n mm
@@ -527,7 +528,7 @@ unconsUnsnocA !_ (Deep24 sa1 sa2 m ta1 ta2 ta3 ta4)
 
 unconsUnsnocA !n (Deep31 sa1 sa2 sa3 m ta1)
   = flip (UCUS sa1) ta1 $
-      case viewRA (A.twice n) m of
+      case viewRA (Sz.twice n) m of
         EmptyR -> Deep11 sa2 Empty sa3
         SnocR m' me
           | (me1, me2) <- A.splitArray n me
@@ -541,7 +542,7 @@ unconsUnsnocA !_ (Deep34 sa1 sa2 sa3 m ta1 ta2 ta3 ta4)
 
 unconsUnsnocA !n (Deep41 sa1 sa2 sa3 sa4 m ta1)
   = flip (UCUS sa1) ta1 $
-      case viewRA (A.twice n) m of
+      case viewRA (Sz.twice n) m of
         EmptyR -> Deep21 sa2 sa3 Empty sa4
         SnocR m' me
           | (me1, me2) <- A.splitArray n me
@@ -557,7 +558,7 @@ unconsUnsnocA !_ (Deep44 sa1 sa2 sa3 sa4 m ta1 ta2 ta3 ta4)
 data Deque_ n a
   = Empty_
   | Shallow_ !(Array n a)
-  | Deep_ !(Digit n a) (Deque ('Twice n) a) !(Digit n a)
+  | Deep_ !(Digit n a) (Deque (Twice n) a) !(Digit n a)
 
 matchDeep :: Deque n a -> Deque_ n a
 matchDeep q = case q of
@@ -581,7 +582,7 @@ matchDeep q = case q of
   Deep44 x y z w m a b c d -> Deep_ (Four x y z w) m (Four a b c d)
 {-# INLINE matchDeep #-}
 
-pattern Deep :: Digit n a -> Deque ('Twice n) a -> Digit n a -> Deque n a
+pattern Deep :: Digit n a -> Deque (Twice n) a -> Digit n a -> Deque n a
 pattern Deep pr m sf <- (matchDeep -> Deep_ pr m sf)
   where
     Deep (One x) m (One a) = Deep11 x m a
@@ -634,7 +635,7 @@ fromListNS sz N.ThreeEnd45 = do
 fromListNS sz (N.Four45 n) = do
   sa1 <- state (A.arraySplitListN sz)
   sa2 <- state (A.arraySplitListN sz)
-  m <- fromListNS (A.twice sz) n
+  m <- fromListNS (Sz.twice sz) n
   ta1 <- state (A.arraySplitListN sz)
   ta2 <- state (A.arraySplitListN sz)
   pure $ Deep22 sa1 sa2 m ta1 ta2
@@ -642,7 +643,7 @@ fromListNS sz (N.Five45 n) = do
   sa1 <- state (A.arraySplitListN sz)
   sa2 <- state (A.arraySplitListN sz)
   sa3 <- state (A.arraySplitListN sz)
-  m <- fromListNS (A.twice sz) n
+  m <- fromListNS (Sz.twice sz) n
   ta1 <- state (A.arraySplitListN sz)
   ta2 <- state (A.arraySplitListN sz)
   pure $ Deep32 sa1 sa2 sa3 m ta1 ta2

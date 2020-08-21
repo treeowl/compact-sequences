@@ -15,6 +15,7 @@ import Data.CompactSequence.Deque.Simple.Internal
 import qualified Data.CompactSequence.Deque.Simple.Internal as D
 import qualified Data.CompactSequence.Deque.Internal as DI
 import qualified Data.CompactSequence.Internal.Array.Safe as A
+import qualified Data.CompactSequence.Internal.Size as Sz
 import Prelude as P
 
 instance Arbitrary a => Arbitrary (Deque a) where
@@ -22,29 +23,29 @@ instance Arbitrary a => Arbitrary (Deque a) where
   -- of magnitude as the size parameter, with any shape.
   arbitrary = sized $ \sz0 -> do
     sz <- choose (0, sz0)
-    Deque <$> go A.one sz
+    Deque <$> go Sz.one sz
     where
-      go :: A.Size n -> Int -> Gen (DI.Deque n a)
+      go :: Sz.Size n -> Int -> Gen (DI.Deque n a)
       go !ars n
         | n <= 0 = pure DI.Empty
-        | n <= A.getSize ars = DI.Shallow <$> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
+        | n <= Sz.getSize ars = DI.Shallow <$> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
       go !ars n = do
         frontSize <- choose (1,4 :: Int)
         rearSize <- choose (1,4 :: Int)
-        m <- go (A.twice ars) (n - (frontSize + rearSize) * A.getSize ars)
+        m <- go (Sz.twice ars) (n - (frontSize + rearSize) * Sz.getSize ars)
         DI.Deep <$> dig ars frontSize <*> pure m <*> dig ars rearSize
 
       dig !ars = \case
-        1 -> DI.One <$> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-        2 -> DI.Two <$> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-                    <*> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-        3 -> DI.Three <$> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-                    <*> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-                    <*> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-        _ -> DI.Four <$> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-                    <*> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-                    <*> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-                    <*> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
+        1 -> DI.One <$> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+        2 -> DI.Two <$> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+                    <*> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+        3 -> DI.Three <$> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+                    <*> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+                    <*> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+        _ -> DI.Four <$> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+                    <*> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+                    <*> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+                    <*> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
 
 {-
   -- We shrink by trimming the spine. Any other shrinks will

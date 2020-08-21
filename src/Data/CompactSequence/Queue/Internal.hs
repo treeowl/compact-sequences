@@ -1,7 +1,6 @@
 {-# language CPP #-}
 {-# language BangPatterns, ScopedTypeVariables, UnboxedTuples, MagicHash #-}
 {-# language DeriveTraversable, StandaloneDeriving #-}
-{-# language DataKinds #-}
 {-# language PatternSynonyms #-}
 {-# language ViewPatterns #-}
 {-# language LambdaCase #-}
@@ -10,7 +9,9 @@
 
 module Data.CompactSequence.Queue.Internal where
 import qualified Data.CompactSequence.Internal.Array as A
-import Data.CompactSequence.Internal.Array (Array, Size, Mult (..))
+import Data.CompactSequence.Internal.Array (Array)
+import qualified Data.CompactSequence.Internal.Size as Sz
+import Data.CompactSequence.Internal.Size (Size, Twice)
 import qualified Data.Foldable as F
 import Data.Function (on)
 
@@ -57,15 +58,15 @@ data RD n a
 
 data Queue n a
   = Empty
-  | Node10 !(Array n a) !(Queue ('Twice n) a)
-  | Node11 !(Array n a) !(Queue ('Twice n) a) !(Array n a)
-  | Node12 !(Array n a) !(Queue ('Twice n) a) !(Array n a) !(Array n a)
-  | Node20 !(Array n a) !(Array n a) (Queue ('Twice n) a)
-  | Node21 !(Array n a) !(Array n a) (Queue ('Twice n) a) !(Array n a)
-  | Node22 !(Array n a) !(Array n a) !(Queue ('Twice n) a) !(Array n a) !(Array n a)
-  | Node30 !(Array n a) !(Array n a) !(Array n a) (Queue ('Twice n) a)
-  | Node31 !(Array n a) !(Array n a) !(Array n a) (Queue ('Twice n) a) !(Array n a)
-  | Node32 !(Array n a) !(Array n a) !(Array n a) !(Queue ('Twice n) a) !(Array n a) !(Array n a)
+  | Node10 !(Array n a) !(Queue (Twice n) a)
+  | Node11 !(Array n a) !(Queue (Twice n) a) !(Array n a)
+  | Node12 !(Array n a) !(Queue (Twice n) a) !(Array n a) !(Array n a)
+  | Node20 !(Array n a) !(Array n a) (Queue (Twice n) a)
+  | Node21 !(Array n a) !(Array n a) (Queue (Twice n) a) !(Array n a)
+  | Node22 !(Array n a) !(Array n a) !(Queue (Twice n) a) !(Array n a) !(Array n a)
+  | Node30 !(Array n a) !(Array n a) !(Array n a) (Queue (Twice n) a)
+  | Node31 !(Array n a) !(Array n a) !(Array n a) (Queue (Twice n) a) !(Array n a)
+  | Node32 !(Array n a) !(Array n a) !(Array n a) !(Queue (Twice n) a) !(Array n a) !(Array n a)
   deriving (Functor, Foldable, Traversable)
 -- An Empty node is safe.
 -- A Node node is safe if both its digits are safe. We require that the child queue of an unsafe
@@ -96,7 +97,7 @@ data Queue n a
 -- code.
 data Queue_ n a
   = Empty_
-  | Node_ !(FD n a) (Queue ('Twice n) a) !(RD n a)
+  | Node_ !(FD n a) (Queue (Twice n) a) !(RD n a)
 
 matchNode :: Queue n a -> Queue_ n a
 matchNode q = case q of
@@ -112,7 +113,7 @@ matchNode q = case q of
   Node32 x y z m a b -> Node_ (FD3 x y z) m (RD2 a b)
 {-# INLINE matchNode #-}
 
-pattern Node :: FD n a -> Queue ('Twice n) a -> RD n a -> Queue n a
+pattern Node :: FD n a -> Queue (Twice n) a -> RD n a -> Queue n a
 pattern Node pr m sf <- (matchNode -> Node_ pr m sf)
   where
     Node (FD1 x) m RD0 = Node10 x m
@@ -149,7 +150,7 @@ viewA !n (Node (FD1 sa1) m (RD2 sa2 sa3)) = ConsA sa1 $
     ShiftedA sam1 sam2 m'
       -> Node (FD2 sam1 sam2) m' RD0
 viewA !n (Node (FD1 sa1) m sf) = ConsA sa1 $
-  case viewA (A.twice n) m of
+  case viewA (Sz.twice n) m of
     EmptyA -> case sf of
       RD2 sa2 sa3 -> Node (FD2 sa2 sa3) Empty RD0
       RD1 sa2 -> singletonA sa2
@@ -184,7 +185,7 @@ snocA !n (Node (FD1 sa0) m (RD2 sa1 sa2)) sa3
 snocA !_ (Node pr m RD0) sa = Node pr m (RD1 sa)
 snocA !_ (Node pr m (RD1 sa1)) sa2 = Node pr m (RD2 sa1 sa2)
 snocA !n (Node pr m (RD2 sa1 sa2)) sa3
-  = Node pr (snocA (A.twice n) m (A.append n sa1 sa2)) (RD1 sa3)
+  = Node pr (snocA (Sz.twice n) m (A.append n sa1 sa2)) (RD1 sa3)
 
 
 -- | Uncons from a node and snoc onto it. Ensure that if the operation is
@@ -219,7 +220,7 @@ snocA !n (Node pr m (RD2 sa1 sa2)) sa3
 --
 -- we have to do the opposite: snoc then view. We might as well
 -- just write a dedicated shifting operation.
-shiftA :: Size n -> Queue ('Twice n) a -> Array n a -> Array n a -> ShiftedA n a
+shiftA :: Size n -> Queue (Twice n) a -> Array n a -> Array n a -> ShiftedA n a
 
 -- BLAST AND DARN. I started out using the Node pattern synonym all
 -- through here. Sadly, GHC was *way* too eager with join point
@@ -240,38 +241,38 @@ shiftA !n (Node31 sa1 sa2 sa3 m sa4) !sa5 !sa6
 -- cascading cases
 shiftA !n (Node10 sa1 m) !sa3 !sa4
   = shrift n sa1 $
-      case viewA (A.twice (A.twice n)) m of
+      case viewA (Sz.twice (Sz.twice n)) m of
         EmptyA -> Node10 (A.append n sa3 sa4) Empty
         ConsA sam m'
-          | (sam1, sam2) <- A.splitArray (A.twice n) sam
+          | (sam1, sam2) <- A.splitArray (Sz.twice n) sam
           -> Node21 sam1 sam2 m' (A.append n sa3 sa4)
 shiftA !n (Node11 sa1 m sa2) !sa3 !sa4
   = shrift n sa1 $
-      case shiftA (A.twice n) m sa2 (A.append n sa3 sa4) of
+      case shiftA (Sz.twice n) m sa2 (A.append n sa3 sa4) of
         ShiftedA sam1 sam2 m'
           -> Node20 sam1 sam2 m'
 shiftA n (Node12 sa1 m sa2 sa3) !sa4 !sa5
   = shrift n sa1 $
-      case shiftA (A.twice n) m sa2 sa3 of
+      case shiftA (Sz.twice n) m sa2 sa3 of
         ShiftedA sam1 sam2 m'
           -> Node21 sam1 sam2 m' (A.append n sa4 sa5)
 shiftA n (Node22 sa1 sa2 m sa3 sa4) !sa5 !sa6
   = shrift n sa1 $
-      case shiftA (A.twice n) m sa3 sa4 of
+      case shiftA (Sz.twice n) m sa3 sa4 of
         ShiftedA sam1 sam2 m'
           -> Node31 sa2 sam1 sam2 m' (A.append n sa5 sa6)
 shiftA n (Node32 sa1 sa2 sa3 m sa4 sa5) !sa6 !sa7
   = shrift n sa1 $
       Node21 sa2 sa3
-           (snocA (A.twice (A.twice n)) m (A.append (A.twice n) sa4 sa5))
+           (snocA (Sz.twice (Sz.twice n)) m (A.append (Sz.twice n) sa4 sa5))
            (A.append n sa6 sa7)
 
-shrift :: Size n -> Array ('Twice n) a -> Queue ('Twice n) a -> ShiftedA n a
+shrift :: Size n -> Array (Twice n) a -> Queue (Twice n) a -> ShiftedA n a
 shrift n sa q
   | (sa1, sa2) <- A.splitArray n sa
   = ShiftedA sa1 sa2 q
 
-data ShiftedA n a = ShiftedA !(Array n a) !(Array n a) (Queue ('Twice n) a)
+data ShiftedA n a = ShiftedA !(Array n a) !(Array n a) (Queue (Twice n) a)
 
 instance Show a => Show (Queue n a) where
     showsPrec p xs = showParen (p > 10) $

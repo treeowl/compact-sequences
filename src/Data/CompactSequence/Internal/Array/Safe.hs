@@ -2,12 +2,7 @@
 {-# language Trustworthy #-}
 
 module Data.CompactSequence.Internal.Array.Safe
-  ( Mult (..)
-  , Array
-  , Size
-  , getSize
-  , one
-  , twice
+  ( Array
   , singleton
   , getSingleton#
   , getSingletonA

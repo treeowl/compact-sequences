@@ -1,5 +1,3 @@
-{-# language DataKinds #-}
-{-# language TypeOperators #-}
 {-# language KindSignatures #-}
 {-# language BangPatterns #-}
 {-# language RoleAnnotations #-}
@@ -11,32 +9,16 @@
 {- OPTIONS_GHC -ddump-simpl #-}
 
 module Data.CompactSequence.Internal.Array where
+import Data.CompactSequence.Internal.Size
 import Data.Primitive.SmallArray
 import Control.Monad.ST.Strict
 import GHC.Exts (SmallArray#)
 
-data Mult = Twice Mult | Mul1
-
-newtype Array (n :: Mult) a = Array (SmallArray a)
+newtype Array n a = Array (SmallArray a)
   deriving (Functor, Foldable, Traversable)
 type role Array nominal representational
 
-newtype Size (n :: Mult) = Size Int
-type role Size nominal
-
-getSize :: Size n -> Int
-getSize (Size n) = n
-
---halve :: Size (Twice m) -> Size m
---halve (Size n) = Size (n `quot` 2)
-
-one :: Size Mul1
-one = Size 1
-
-twice :: Size n -> Size (Twice n)
-twice (Size n) = Size (2*n)
-
-singleton :: a -> Array Mul1 a
+singleton :: a -> Array Sz1 a
 singleton x = Array (pure x)
 
 -- | Unsafely convert a 'SmallArray' of size @n@
@@ -49,10 +31,10 @@ unsafeSmallArrayToArray = Array
 arrayToSmallArray :: Array n a -> SmallArray a
 arrayToSmallArray (Array sa) = sa
 
-getSingleton# :: Array Mul1 a -> (# a #)
+getSingleton# :: Array Sz1 a -> (# a #)
 getSingleton# (Array sa) = indexSmallArray## sa 0
 
-getSingletonA :: Applicative f => Array Mul1 a -> f a
+getSingletonA :: Applicative f => Array Sz1 a -> f a
 getSingletonA (Array sa)
   | (# a #) <- indexSmallArray## sa 0
   = pure a

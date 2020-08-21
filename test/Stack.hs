@@ -15,6 +15,7 @@ import Data.CompactSequence.Stack.Simple.Internal
 import qualified Data.CompactSequence.Stack.Simple.Internal as S
 import qualified Data.CompactSequence.Stack.Internal as SI
 import qualified Data.CompactSequence.Internal.Array.Safe as A
+import qualified Data.CompactSequence.Internal.Size as Sz
 import Prelude as P
 
 instance Arbitrary a => Arbitrary (Stack a) where
@@ -22,21 +23,21 @@ instance Arbitrary a => Arbitrary (Stack a) where
   -- of magnitude as the size parameter, with any shape.
   arbitrary = sized $ \sz0 -> do
     sz <- choose (0, sz0)
-    Stack <$> go A.one sz
+    Stack <$> go Sz.one sz
     where
-      go :: A.Size n -> Int -> Gen (SI.Stack n a)
+      go :: Sz.Size n -> Int -> Gen (SI.Stack n a)
       go !_ars n
         | n <= 0 = pure SI.Empty
       go !ars n = choose (1,3 :: Int) >>= \case
-        1 -> SI.One <$> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-                    <*> go (A.twice ars) (n - A.getSize ars)
-        2 -> SI.Two <$> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-                    <*> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-                    <*> go (A.twice ars) (n - 2 * A.getSize ars)
-        3 -> SI.Three <$> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-                      <*> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-                      <*> (A.fromList ars <$> vectorOf (A.getSize ars) arbitrary)
-                      <*> go (A.twice ars) (n - 3 * A.getSize ars)
+        1 -> SI.One <$> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+                    <*> go (Sz.twice ars) (n - Sz.getSize ars)
+        2 -> SI.Two <$> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+                    <*> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+                    <*> go (Sz.twice ars) (n - 2 * Sz.getSize ars)
+        3 -> SI.Three <$> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+                      <*> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+                      <*> (A.fromList ars <$> vectorOf (Sz.getSize ars) arbitrary)
+                      <*> go (Sz.twice ars) (n - 3 * Sz.getSize ars)
 
   -- We shrink by trimming the spine. Any other shrinks will
   -- be tricky.
