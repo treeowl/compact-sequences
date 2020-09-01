@@ -49,10 +49,15 @@ empty = Stack S.empty
 infixr 5 `cons`, :<, <|
 
 -- | Push an element onto the front of a stack.
+--
+-- \( O(\log n) \)
 cons :: a -> Stack a -> Stack a
 cons a (Stack s) = Stack $ consA Sz.one (A.singleton a) s
 
 -- | Pop an element off the front of a stack.
+--
+-- Accessing the first element is \( O(1) \). Accessing the rest is
+-- \( O(\log n) \).
 uncons :: Stack a -> Maybe (a, Stack a)
 uncons (Stack stk) = do
   ConsA sa stk' <- pure $ unconsA Sz.one stk
