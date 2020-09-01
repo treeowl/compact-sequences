@@ -5,10 +5,10 @@ cabal-version:       2.2
 -- For further documentation, see http://haskell.org/cabal/users-guide/
 
 name:                compact-sequences
-version:             0.1.0.0
-synopsis: Stacks and queues with compact representations.
+version:             0.2.0.0
+synopsis: Stacks, queues, and deques with compact representations.
 description:
-  Stacks and queues that take n + O(log n) space at the cost of
+  Stacks, queues, and deques that take n + O(log n) space at the cost of
   having amortized O(log n) time complexity for basic operations.
 bug-reports: https://github.com/treeowl/compact-sequences/issues
 homepage: https://github.com/treeowl/compact-sequences/
