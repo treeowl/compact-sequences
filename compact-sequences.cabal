@@ -8,8 +8,8 @@ name:                compact-sequences
 version:             0.2.0.0
 synopsis: Stacks, queues, and deques with compact representations.
 description:
-  Stacks, queues, and deques that take n + O(log n) space at the cost of
-  having amortized O(log n) time complexity for basic operations.
+  Stacks, queues, and deques that take \( n + O(\log n) \) space at the cost of
+  having amortized \( O(\log n) \) time complexity for basic operations.
 bug-reports: https://github.com/treeowl/compact-sequences/issues
 homepage: https://github.com/treeowl/compact-sequences/
 license:             BSD-3-Clause
