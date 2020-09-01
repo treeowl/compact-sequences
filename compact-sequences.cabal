@@ -40,7 +40,9 @@ library
                  , Data.CompactSequence.Internal.Array.Safe
   -- other-modules:
   -- other-extensions:
-  build-depends:       base >=4.10.0.0 && < 5.0
+  build-depends:
+                       -- Lower bound for Semigroup in the Prelude; we could adjust this.
+                       base >=4.11.0.0 && < 5.0
                        -- Lower bound for runSmallArray
                      , primitive >= 0.6.4.0
                        -- We use these for State.
