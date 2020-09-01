@@ -1,5 +1,6 @@
 {-# language BangPatterns #-}
 {-# language RoleAnnotations #-}
+{-# language ScopedTypeVariables #-}
 {-# language Safe #-}
 {- OPTIONS_GHC -ddump-simpl #-}
 
@@ -48,6 +49,30 @@ half (Size n) = Size (n `quot` 2)
 
 one :: Size Sz1
 one = Size 1
+
+class KnownSize n where
+  sz :: Size n
+instance KnownSize n => KnownSize (Twice n) where
+  sz = Size (2 * getSize (sz :: Size n))
+instance KnownSize Sz1 where sz = sz1
+instance KnownSize Sz2 where sz = sz2
+instance KnownSize Sz3 where sz = sz3
+instance KnownSize Sz4 where sz = sz4
+instance KnownSize Sz5 where sz = sz5
+instance KnownSize Sz6 where sz = sz6
+instance KnownSize Sz7 where sz = sz7
+instance KnownSize Sz8 where sz = sz8
+instance KnownSize Sz9 where sz = sz9
+instance KnownSize Sz10 where sz = sz10
+instance KnownSize Sz11 where sz = sz11
+instance KnownSize Sz12 where sz = sz12
+instance KnownSize Sz13 where sz = sz13
+instance KnownSize Sz14 where sz = sz14
+instance KnownSize Sz15 where sz = sz15
+instance KnownSize Sz16 where sz = sz16
+instance KnownSize Sz17 where sz = sz17
+instance KnownSize Sz18 where sz = sz18
+instance KnownSize Sz19 where sz = sz19
 
 sz1 :: Size Sz1
 sz1 = Size 1

@@ -21,6 +21,52 @@ type role Array nominal representational
 singleton :: a -> Array Sz1 a
 singleton x = Array (pure x)
 
+getSingleton# :: Array Sz1 a -> (# a #)
+getSingleton# (Array sa) = indexSmallArray## sa 0
+
+getSingletonA :: Applicative f => Array Sz1 a -> f a
+getSingletonA (Array sa)
+  | (# a #) <- indexSmallArray## sa 0
+  = pure a
+
+mk2 :: a -> a -> Array Sz2 a
+mk2 a b = Array $ runSmallArray $ do
+  mar <- newSmallArray 2 a
+  writeSmallArray mar 1 b
+  pure mar
+
+get2# :: Array Sz2 a -> (# a, a #)
+get2# (Array ar)
+  | (# a #) <- indexSmallArray## ar 0
+  , (# b #) <- indexSmallArray## ar 1
+  = (# a, b #)
+
+get2A :: Applicative f => Array Sz2 a -> f (a, a)
+get2A ar
+  | (# x, y #) <- get2# ar
+  = pure (x, y)
+
+mk4 :: a -> a -> a -> a -> Array sz4 a
+mk4 a b c d = Array $ runSmallArray $ do
+  mar <- newSmallArray 4 a
+  writeSmallArray mar 1 b
+  writeSmallArray mar 2 c
+  writeSmallArray mar 3 d
+  pure mar
+
+get4# :: Array Sz4 a -> (# a, a, a, a #)
+get4# (Array ar)
+  | (# a #) <- indexSmallArray## ar 0
+  , (# b #) <- indexSmallArray## ar 1
+  , (# c #) <- indexSmallArray## ar 2
+  , (# d #) <- indexSmallArray## ar 3
+  = (# a, b, c, d #)
+
+get4A :: Applicative f => Array Sz4 a -> f (a, a, a, a)
+get4A ar
+  | (# a, b, c, d #) <- get4# ar
+  = pure (a, b, c, d)
+
 -- | Unsafely convert a 'SmallArray' of size @n@
 -- to an @'Array' n@. This is genuinely unsafe: if
 -- @n@ is greater than the true array size, then
@@ -30,14 +76,6 @@ unsafeSmallArrayToArray = Array
 
 arrayToSmallArray :: Array n a -> SmallArray a
 arrayToSmallArray (Array sa) = sa
-
-getSingleton# :: Array Sz1 a -> (# a #)
-getSingleton# (Array sa) = indexSmallArray## sa 0
-
-getSingletonA :: Applicative f => Array Sz1 a -> f a
-getSingletonA (Array sa)
-  | (# a #) <- indexSmallArray## sa 0
-  = pure a
 
 splitArray :: Size n -> Array (Twice n) a -> (Array n a, Array n a)
 splitArray (Size len) (Array sa)

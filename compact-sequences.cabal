@@ -28,6 +28,8 @@ library
   exposed-modules: Data.CompactSequence.Stack.Simple
                  , Data.CompactSequence.Stack.Simple.Internal
                  , Data.CompactSequence.Stack.Internal
+                 , Data.CompactSequence.Stack.Topped
+                 , Data.CompactSequence.Stack.Topped.Internal
                  , Data.CompactSequence.Queue.Simple
                  , Data.CompactSequence.Queue.Simple.Internal
                  , Data.CompactSequence.Queue.Internal
@@ -54,6 +56,17 @@ test-suite stack-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Stack.hs
+  build-depends:       base >=4.10.0.0,
+                       compact-sequences,
+                       QuickCheck,
+                       tasty,
+                       tasty-quickcheck
+
+test-suite topped-stack-test
+  default-language:    Haskell2010
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             ToppedStack.hs
   build-depends:       base >=4.10.0.0,
                        compact-sequences,
                        QuickCheck,

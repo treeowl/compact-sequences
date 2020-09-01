@@ -7,6 +7,7 @@ module Data.CompactSequence.Stack.Internal where
 import qualified Data.Foldable as F
 import Data.CompactSequence.Internal.Size (Size, Twice)
 import qualified Data.CompactSequence.Internal.Size as Sz
+import qualified Data.CompactSequence.Internal.Numbers as N
 import qualified Data.CompactSequence.Internal.Array.Safe as A
 import Data.CompactSequence.Internal.Array.Safe (Array)
 import Data.CompactSequence.Internal.Size ()
@@ -20,6 +21,7 @@ data Stack n a
   | Two !(Array n a) !(Array n a) (Stack (Twice n) a)
   | Three !(Array n a) !(Array n a) !(Array n a) !(Stack (Twice n) a)
   deriving (Functor, Traversable)
+
 {-
 Debit invariant: We allow the Stack in each Two node as many debits as there
 are elements in its array and those of all previous Two nodes.
@@ -42,6 +44,8 @@ instance Show a => Show (Stack n a) where
     showsPrec p xs = showParen (p > 10) $
         showString "fromList " . shows (F.toList xs)
 
+-- | Caution: 'length' is extremely slow. Use 'lengthWith'
+-- instead.
 instance Foldable (Stack n) where
   foldMap f xs = foldMapDefault f xs
 
@@ -61,20 +65,17 @@ instance Foldable (Stack n) where
   null Empty = True
   null _ = False
 
-  -- TODO: Once the size representation is properly sorted,
-  -- we should implement a custom length method.
-
-  -- length does O(log n) *unshared* work, but since
-  -- it forces the spine it does O(n) *amortized* work.
-  -- The right way to get stack sizes efficiently is to track
-  -- them separately.
-  length = go 1 0
+-- | @lengthWith@ takes a stack of the given size and
+-- returns the number of elements in the stack plus the
+-- given 'Int'.
+lengthWith :: Sz.Size n -> Int -> Stack n a -> Int
+lengthWith sz = \str -> go sz str
     where
-      go :: Int -> Int -> Stack m a -> Int
+      go :: Size m -> Int -> Stack m a -> Int
       go !_s acc Empty = acc
-      go s acc (One _ more) = go (2*s) (acc + s) more
-      go s acc (Two _ _ more) = go (2*s) (acc + 2*s) more
-      go s acc (Three _ _ _ more) = go (2*s) (acc + 3*s) more
+      go s acc (One _ more) = go (Sz.twice s) (acc + Sz.getSize s) more
+      go s acc (Two _ _ more) = go (Sz.twice s) (acc + 2*Sz.getSize s) more
+      go s acc (Three _ _ _ more) = go (Sz.twice s) (acc + 3*Sz.getSize s) more
 
 empty :: Stack n a
 empty = Empty
@@ -151,17 +152,18 @@ unconsA n (One sa more) = ConsA sa $
       where
         (sa2, sa3) = A.splitArray n sa1
 
-{-
-Cases:
-Empty is trivial.
-`Three`: we increase the debit allowance below.
-`Two`: We reduce the debit allowance on certain nodes by 2; pay 2*log n to discharge that.
-`One`: This is the hard case. We have some number of `One` nodes followed by something else.
-For each `One`, we perform a split. We place debits to pay for those, discharging the ones
-at the root. At the end, we have a situation similar to that for `cons`: the tricky case
-is ending in `Two`, where we use the fact that all the new `Two`s pay for the loss of the
-final `Two`.
-
-
-One One One Two
--}
+-- We convert the size to a dyadic representation
+-- (1-2 binary) and use that as the shape of the stack.
+fromListSN :: Size n -> N.Dyadic -> [a] -> Stack n a
+fromListSN !_ N.DEnd xs
+  | F.null xs = Empty
+  | otherwise = error "Data.CompactSequence.Stack.fromListN: List too long."
+fromListSN s (N.DOne n') xs
+  | (ar, xs') <- A.arraySplitListN s xs
+  = One ar (fromListSN (Sz.twice s) n' xs')
+fromListSN s (N.DTwo n') xs
+  | (ar1, xs') <- A.arraySplitListN s xs
+  , (ar2, xs'') <- A.arraySplitListN s xs'
+    -- We build eagerly to dispose of the list as soon as
+    -- possible.
+  = Two ar1 ar2 $! fromListSN (Sz.twice s) n' xs''

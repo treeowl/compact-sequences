@@ -3,6 +3,8 @@
 {-# language ViewPatterns #-}
 {-# language TypeFamilies #-}
 {-# language DeriveTraversable #-}
+{-# language MagicHash #-}
+{-# language UnboxedTuples #-}
 -- We need Trustworthy for the IsList instance. *sigh*
 {-# language Trustworthy #-}
 
@@ -13,68 +15,94 @@ without doing any special optimization for the very top of the
 stack.
 -}
 
-module Data.CompactSequence.Stack.Simple.Internal
-  ( Stack (.., Empty, (:<))
+module Data.CompactSequence.Stack.Topped.Internal
+  ( Stack (..)
   , empty
   , cons
   , (<|)
   , uncons
-  , compareLength
-  , take
+--  , compareLength
+--  , take
   , fromList
-  , fromListN
+--  , fromListN
   ) where
 
 import qualified Data.CompactSequence.Stack.Internal as S
 import Data.CompactSequence.Stack.Internal (consA, unconsA, ViewA (..))
 import Data.CompactSequence.Internal.Size (Size, Twice)
 import qualified Data.CompactSequence.Internal.Size as Sz
+import Data.CompactSequence.Internal.Size (Sz4, sz4)
 import qualified Data.CompactSequence.Internal.Array.Safe as A
 import qualified Data.CompactSequence.Internal.Numbers as N
 import qualified Data.Foldable as F
 import qualified GHC.Exts as Exts
 import qualified Prelude as P
+import Data.Function (on)
 import Prelude hiding (take)
 
 -- | A stack.
-newtype Stack a = Stack {unStack :: S.Stack Sz.Sz1 a}
-  deriving (Functor, Traversable, Eq, Ord)
-  -- TODO: Write a custom Traversable instance to avoid
-  -- an extra fmap at the top.
+data Stack a
+  = One a !(S.Stack Sz4 a)
+  | Two a a (S.Stack Sz4 a)
+  | Three a a a (S.Stack Sz4 a)
+  | Four a a  a a (S.Stack Sz4 a)
+  | Five a a  a a a (S.Stack Sz4 a)
+  | Six a a  a a a a (S.Stack Sz4 a)
+  | Seven a a a  a a a a !(S.Stack Sz4 a)
+  | Empty
+  deriving (Functor, Foldable, Traversable)
+
+instance Eq a => Eq (Stack a) where
+  (==) = (==) `on` F.toList
+
+instance Ord a => Ord (Stack a) where
+  compare = compare `on` F.toList
 
 -- | The empty stack.
 empty :: Stack a
-empty = Stack S.empty
+empty = Empty
 
-infixr 5 `cons`, :<, <|
+infixr 5 `cons`, <|
 
 -- | Push an element onto the front of a stack.
 cons :: a -> Stack a -> Stack a
-cons a (Stack s) = Stack $ consA Sz.one (A.singleton a) s
+cons a Empty = One a S.Empty
+cons a (One b m) = Two a b m
+cons a (Two b c m) = Three a b c m
+cons a (Three b c d m) = Four a b c d m
+cons a (Four b c d e m) = Five a b c d e m
+cons a (Five b c d e f m) = Six a b c d e f m
+cons a (Six b c d e f g m) = Seven a b c d e f g m
+cons a (Seven b c d e f g h m)
+  = Four a b c d $ S.consA sz4 (A.mk4 e f g h) m
 
 -- | Pop an element off the front of a stack.
 uncons :: Stack a -> Maybe (a, Stack a)
-uncons (Stack stk) = do
-  ConsA sa stk' <- pure $ unconsA Sz.one stk
-  hd <- A.getSingletonA sa
-  Just (hd, Stack stk')
+uncons (Seven a b c d e f g  m)
+  = Just (a, Six b c d e f g  m)
+uncons (Six a b c d e f  m)
+  = Just (a, Five b c d e f  m)
+uncons (Five a b c d e  m)
+  = Just (a, Four b c d e  m)
+uncons (Four a b c d  m)
+  = Just (a, Three b c d  m)
+uncons (Three a b c  m)
+  = Just (a, Two b c  m)
+uncons (Two a b  m)
+  = Just (a, One b  m)
+uncons (One a  m)
+  = Just (a, case S.unconsA Sz.sz4 m of
+      ConsA ar m'
+        | (# b, c, d, e #) <- A.get4# ar
+        -> Four b c d e m'
+      EmptyA -> Empty)
+uncons Empty = Nothing
+
 
 -- | An infix synonym for 'cons'.
 (<|) :: a -> Stack a -> Stack a
 (<|) = cons
 
--- | A bidirectional pattern synonym for working with
--- the front of a stack.
-pattern (:<) :: a -> Stack a -> Stack a
-pattern x :< xs <- (uncons -> Just (x, xs))
-  where
-    (:<) = cons
-
--- | A bidirectional pattern synonym for the empty stack.
-pattern Empty :: Stack a
-pattern Empty = Stack S.Empty
-
-{-# COMPLETE (:<), Empty #-}
 
 instance Foldable Stack where
   -- TODO: implement more methods.
@@ -87,7 +115,17 @@ instance Foldable Stack where
   -- it forces the spine it does O(n) *amortized* work.
   -- The right way to get stack sizes efficiently is to track
   -- them separately.
-  length (Stack xs) = S.lengthWith Sz.one 0 xs
+  length Empty = 0
+  length (One _ m) = S.lengthWith Sz.sz 1 m
+  length (Two _ _ m) = S.lengthWith Sz.sz 2 m
+  length (Three _ _ _ m) = S.lengthWith Sz.sz 3 m
+  length (Four _ _ _ _ m) = S.lengthWith Sz.sz 4 m
+  length (Five _ _ _ _ _ m) = S.lengthWith Sz.sz 5 m
+  length (Six _ _ _ _ _ _ m) = S.lengthWith Sz.sz 6 m
+  length (Seven _ _ _ _ _ _ _ m) = S.lengthWith Sz.sz 7 m
+
+
+{-
 
 -- | \( O(\min(m, n)) \). Compare an 'Int' to the length of a 'Stack'.
 --
@@ -113,6 +151,9 @@ take n s
   = fromListN n (P.take n (F.toList s))
   | otherwise = s
 
+-}
+
+{-
 instance Semigroup (Stack a) where
   -- This gives us O(m + n) append. I believe it's possible to
   -- achieve O(m). See #12 for a sketch.
@@ -122,17 +163,20 @@ instance Semigroup (Stack a) where
 
 instance Monoid (Stack a) where
   mempty = empty
+-}
 
 instance Exts.IsList (Stack a) where
   type Item (Stack a) = a
   toList = F.toList
   fromList = fromList
-  fromListN = fromListN
+--  fromListN = fromListN
 
 -- | \( O(n \log n) \). Convert a list to a stack, with the
 -- first element of the list as the top of the stack.
 fromList :: [a] -> Stack a
 fromList = foldr cons empty
+
+{-
 
 -- | \( O(n) \). Convert a list of known length to a stack,
 -- with the first element of the list as the top of the stack.
@@ -140,6 +184,7 @@ fromListN :: Int -> [a] -> Stack a
 fromListN n !_
   | n < 0 = error "Data.CompactSequence.Stack.fromListN: Negative argument."
 fromListN s xs = Stack $ S.fromListSN Sz.one (N.toDyadic s) xs
+-}
 
 instance Show a => Show (Stack a) where
     showsPrec p xs = showParen (p > 10) $

@@ -6,6 +6,12 @@ module Data.CompactSequence.Internal.Array.Safe
   , singleton
   , getSingleton#
   , getSingletonA
+  , mk2
+  , get2#
+  , get2A
+  , mk4
+  , get4#
+  , get4A
   , arrayToSmallArray
   , splitArray
   , append
