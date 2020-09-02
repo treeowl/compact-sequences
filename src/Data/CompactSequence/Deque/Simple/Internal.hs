@@ -84,7 +84,7 @@ unsnoc (Deque q) = case D.viewRA Sz.one q of
     -> Just (Deque q', a)
 
 infixr 5 :<, `cons`
-infixl 4 `snoc`, |>
+infixl 4 `snoc`, :>, |>
 
 -- | A bidirectional pattern synonym for manipulating the
 -- front of a deque.
